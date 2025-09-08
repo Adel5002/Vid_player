@@ -1,11 +1,12 @@
 import math
 import sys
 import random
+import datetime
 
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLineEdit, QWidget, QSizePolicy, \
-    QPushButton, QGridLayout, QGraphicsScene, QGraphicsView, QSlider
+    QPushButton, QGridLayout, QGraphicsScene, QGraphicsView, QSlider, QLabel
 from PySide6.QtCore import QTimer, Qt, QSize, QUrl
 from PySide6.QtGui import QBrush, QColor, QPainter, QRadialGradient, QIcon, QPainterPath
 
@@ -81,9 +82,12 @@ class MyWidget(QMainWindow):
         self.player.durationChanged.connect(self.onDurationChanged)
 
         self.view.setRenderHint(QPainter.Antialiasing)
-        self.view.setStyleSheet("background: transparent; border: none;")
+        self.view.setStyleSheet("background: black; border: none;")
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.path = QPainterPath()
+
 
 
         # КНОПКИ УПРАВЛЕНИЯ ПРОИГРЫВАТЕЛЕМ
@@ -157,8 +161,54 @@ class MyWidget(QMainWindow):
         # ТАЙМЛАЙН (слайдер позиции видео)
 
         self.timeline = QSlider(Qt.Horizontal, self.central)
+        self.timeline.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 6px;
+                background: #e0e0e0;
+                border-radius: 3px;
+            }
+
+            QSlider::sub-page:horizontal {
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #4facfe, stop:1 #00f2fe
+                );
+                border-radius: 3px;
+            }
+
+            QSlider::add-page:horizontal {
+                background: #e0e0e0;
+                border-radius: 3px;
+            }
+
+            QSlider::handle:horizontal {
+                background: white;
+                border: 2px solid #4facfe;
+                width: 14px;
+                height: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
+            }
+
+            QSlider::handle:horizontal:hover {
+                background: #f0faff;
+                border: 2px solid #00f2fe;
+            }
+
+            QSlider::handle:horizontal:pressed {
+                background: #e6f7ff;
+                border: 2px solid #0099ff;
+            }
+        """)
+
         self.timeline_pos_is_fullscreen = lambda rect: [rect.x() + 10, rect.y() + rect.height() - 90, rect.width() - 20, 20]
         self.timeline_pos_is_small_screen = lambda rect: [rect[0] + 10, rect[1] + rect[3] - 80, rect[2] - 20, 20]
+
+
+        # TIMELINE ВРЕМЕННОЙ СЧЕТЧИК
+
+        self.video_duration_timer = QLabel(self.controls_widget)
+        self.controls_layout.addWidget(self.video_duration_timer, 0, 0, alignment=Qt.AlignLeft)
 
 
         # АНИМАЦИЯ (фоновый градиент)
@@ -170,16 +220,34 @@ class MyWidget(QMainWindow):
 
     # ТАЙМЛАЙН И ПОЗИЦИЯ ВИДЕО
 
+    def format_timedelta(self, td: datetime.timedelta) -> str:
+        total_seconds = int(td.total_seconds())
+
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        if hours > 0:
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+        else:
+            return f"{minutes:02}:{seconds:02}"
+
     def onDurationChanged(self, duration_ms):
         self.timeline.setRange(0, duration_ms)
         self.timeline.sliderMoved.connect(self.onSeek)
-        rect_x, rect_y, rect_w, rect_h = self.getPlayerRect()
         self.timeline.setGeometry(*self.timeline_pos_is_small_screen(self.getPlayerRect()))
         self.timeline.show()
-        self.player.positionChanged.connect(lambda pos: self.timeline.setValue(pos))
+        self.player.positionChanged.connect(self.onVideoMovement)
+        self.video_duration_timer.setText(self.format_timedelta(datetime.timedelta(milliseconds=self.player.duration())))
 
     def onSeek(self, position_ms):
         self.player.setPosition(position_ms)
+
+    def onVideoMovement(self, pos):
+        self.timeline.setValue(pos)
+        video_duration = self.format_timedelta(datetime.timedelta(milliseconds=pos))
+        video_total_duration = self.format_timedelta(datetime.timedelta(milliseconds=self.player.duration()))
+        video_duration_and_timer = f'{video_duration}/{video_total_duration}'
+        self.video_duration_timer.setText(video_duration_and_timer)
 
 
     # ОТРИСОВКА (фон, градиенты, плеер)
@@ -196,7 +264,6 @@ class MyWidget(QMainWindow):
         self.search_bar.setFixedWidth(player_width)
 
         if self.is_fullscreen:
-            self._normal_rect = self.view.geometry()
             rect = self.central.rect()
             self.view.setGeometry(rect)
             self.timeline.setGeometry(*self.timeline_pos_is_fullscreen(rect))
@@ -207,6 +274,7 @@ class MyWidget(QMainWindow):
             self.graphics_video_item.setSize(rect.size())
             self.view.setSceneRect(0, 0, rect.width(), rect.height())
             self.search_bar.hide()
+            self.view.clearMask()
         else:
             rect_x, rect_y, rect_w, rect_h = self.getPlayerRect()
             self.timeline.setGeometry(*self.timeline_pos_is_small_screen([rect_x, rect_y, rect_w, rect_h]))
@@ -220,6 +288,7 @@ class MyWidget(QMainWindow):
             self.search_bar.show()
             path = QPainterPath()
             path.addRoundedRect(0, 0, rect_w, rect_h, 20, 20)
+            self.view.setMask(path.toFillPolygon().toPolygon())
 
         self.update()
         super().resizeEvent(event)
@@ -296,7 +365,6 @@ class MyWidget(QMainWindow):
 
         if self.is_fullscreen:
             self.central.setStyleSheet('background: #000;')
-            self._normal_rect = self.view.geometry()
             rect = self.central.rect()
             self.view.setGeometry(rect)
             self.timeline.setGeometry(*self.timeline_pos_is_fullscreen(rect))
@@ -307,6 +375,7 @@ class MyWidget(QMainWindow):
             self.graphics_video_item.setSize(rect.size())
             self.view.setSceneRect(0, 0, rect.width(), rect.height())
             self.search_bar.hide()
+            self.view.clearMask()
         else:
             self.central.setStyleSheet('background: transparent;')
             rect_x, rect_y, rect_w, rect_h = self.getPlayerRect()
@@ -321,6 +390,8 @@ class MyWidget(QMainWindow):
             self.search_bar.show()
             path = QPainterPath()
             path.addRoundedRect(0, 0, rect_w, rect_h, 20, 20)
+            self.view.setMask(path.toFillPolygon().toPolygon())
+
 
 
 
