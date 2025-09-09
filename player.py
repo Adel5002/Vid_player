@@ -8,7 +8,8 @@ from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLineEdit, QWidget, QSizePolicy, \
     QPushButton, QGridLayout, QGraphicsScene, QGraphicsView, QSlider, QLabel
 from PySide6.QtCore import QTimer, Qt, QSize, QUrl
-from PySide6.QtGui import QBrush, QColor, QPainter, QRadialGradient, QIcon, QPainterPath
+from PySide6.QtGui import QBrush, QColor, QPainter, QRadialGradient, QIcon, QPainterPath, QKeySequence
+
 
 class Blob:
     def __init__(self, x, y, radius):
@@ -61,6 +62,9 @@ class MyWidget(QMainWindow):
         self.t = 0
         self.blobs = []
         self.main_color = QColor(255, 255, 255, 45)
+
+        # Центральный виджет
+
         self.central = QWidget()
 
 
@@ -89,7 +93,6 @@ class MyWidget(QMainWindow):
         self.path = QPainterPath()
 
 
-
         # КНОПКИ УПРАВЛЕНИЯ ПРОИГРЫВАТЕЛЕМ
 
         self.controls_widget = QWidget(self.central)
@@ -116,19 +119,26 @@ class MyWidget(QMainWindow):
         self.updatePlayPauseIcon()
         self.play_pause_btn.clicked.connect(self.togglePlayPause)
 
+        # кнопка начала видео
+        self.start_video = QPushButton(self.central)
+        self.start_video.setIcon(QIcon('icons/play_bigger.png'))
+        self.start_video.setIconSize(QSize(60, 60))
+        self.start_video.setFixedSize(100, 100)
+        self.start_video.setStyleSheet("background: transparent; border: none;")
+        self.start_video.clicked.connect(self.togglePlayPause)
+
+
         # добавление кнопок в layout
         self.controls_layout.addWidget(self.play_pause_btn, 0, 2, alignment=Qt.AlignCenter)
         self.controls_layout.addWidget(self.fullscreen_btn, 0, 4, alignment=Qt.AlignRight)
         self.controls_widget.setLayout(self.controls_layout)
 
-        # позиционирование панели кнопок
-        rect_x, rect_y, rect_w, rect_h = self.getPlayerRect()
-        controls_height = 50
-        self.controls_widget.resize(rect_w, controls_height)
-        self.controls_widget.move(0, rect_h - controls_height - 20)
+        self.controls_widget.hide()
 
 
         # ПОИСКОВАЯ СТРОКА
+
+        # Сделать так чтобы ввод начинал работать только после нажатия на поисковую строку
 
         self.search_layout = QVBoxLayout()
         self.search_layout.setContentsMargins(0, 20, 0, 0)
@@ -217,6 +227,13 @@ class MyWidget(QMainWindow):
         self.timer.timeout.connect(self.animate)
         self.timer.start(40)  # ~25fps
 
+        # Убираем фокус с виджетов
+
+        self.play_pause_btn.setFocusPolicy(Qt.NoFocus)
+        self.fullscreen_btn.setFocusPolicy(Qt.NoFocus)
+        self.start_video.setFocusPolicy(Qt.NoFocus)
+        self.search_bar.setFocusPolicy(Qt.ClickFocus)
+
 
     # ТАЙМЛАЙН И ПОЗИЦИЯ ВИДЕО
 
@@ -231,19 +248,37 @@ class MyWidget(QMainWindow):
         else:
             return f"{minutes:02}:{seconds:02}"
 
+    def keyPressEvent(self, event, /):
+        key = event.key()
+        native = event.nativeVirtualKey()
+
+        if key == Qt.Key_Space:
+            self.togglePlayPause()
+        elif native == 0x46:  # это виртуальный код F (одинаковый во всех раскладках)
+            self.makeFullscreen()
+        elif key == Qt.Key_Escape:
+            self.is_fullscreen = True
+            self.makeFullscreen()
+
+
     def onDurationChanged(self, duration_ms):
+        if len(self.video_duration_timer.text()) == 0:
+            self.view.setMouseTracking(False)
+
         self.timeline.setRange(0, duration_ms)
         self.timeline.sliderMoved.connect(self.onSeek)
         self.timeline.setGeometry(*self.timeline_pos_is_small_screen(self.getPlayerRect()))
-        self.timeline.show()
+
         self.player.positionChanged.connect(self.onVideoMovement)
         self.video_duration_timer.setText(self.format_timedelta(datetime.timedelta(milliseconds=self.player.duration())))
+        self.timeline.hide()
 
     def onSeek(self, position_ms):
         self.player.setPosition(position_ms)
 
     def onVideoMovement(self, pos):
         self.timeline.setValue(pos)
+
         video_duration = self.format_timedelta(datetime.timedelta(milliseconds=pos))
         video_total_duration = self.format_timedelta(datetime.timedelta(milliseconds=self.player.duration()))
         video_duration_and_timer = f'{video_duration}/{video_total_duration}'
@@ -262,12 +297,25 @@ class MyWidget(QMainWindow):
         self.generateBlobs()
         player_width = int(self.width() * 0.8)
         self.search_bar.setFixedWidth(player_width)
+        self.timeline.hide()
+
+        controls_height = 30
+        rect_x, rect_y, rect_w, rect_h = self.getPlayerRect()
+        self.view.setGeometry(rect_x, rect_y, rect_w, rect_h)
+        self.graphics_video_item.setSize(QSize(rect_w, rect_h))
+
+        btn_w, btn_h = self.start_video.width(), self.start_video.height()
+        self.start_video.move(
+            rect_x + rect_w // 2 - btn_w // 2,
+            rect_y + rect_h // 2 - btn_h // 2
+        )
+
+        self.view.mousePressEvent = self.togglePlayPause
 
         if self.is_fullscreen:
             rect = self.central.rect()
             self.view.setGeometry(rect)
             self.timeline.setGeometry(*self.timeline_pos_is_fullscreen(rect))
-            controls_height = 30
             self.controls_widget.resize(rect.width(), controls_height)
             self.controls_widget.move(rect.x(), rect.y() + rect.height() - controls_height - 20)
             self.graphics_video_item.setPos(0, 0)
@@ -276,9 +324,7 @@ class MyWidget(QMainWindow):
             self.search_bar.hide()
             self.view.clearMask()
         else:
-            rect_x, rect_y, rect_w, rect_h = self.getPlayerRect()
             self.timeline.setGeometry(*self.timeline_pos_is_small_screen([rect_x, rect_y, rect_w, rect_h]))
-            controls_height = 30
             self.controls_widget.resize(rect_w, controls_height)
             self.controls_widget.move(rect_x, rect_y + rect_h - controls_height - 20)
             self.view.setGeometry(rect_x, rect_y, rect_w, rect_h)
@@ -346,13 +392,17 @@ class MyWidget(QMainWindow):
         self.play_pause_btn.setIcon(icon)
         self.play_pause_btn.setIconSize(QSize(40, 40))
 
-    def togglePlayPause(self):
+    def togglePlayPause(self, event=None):
+        self.view.setMouseTracking(True)
+        self.view.mouseMoveEvent = self.mouseMovedInsidePlayer
         self.is_playing = not self.is_playing
         self.updatePlayPauseIcon()
         if self.is_playing:
             self.player.play()
+            self.start_video.hide()
         else:
             self.player.pause()
+            self.start_video.show()
 
     def updateFullscreenIcon(self):
         icon = QIcon("icons/minimize.png") if self.is_fullscreen else QIcon("icons/fullscreen.png")
@@ -392,6 +442,15 @@ class MyWidget(QMainWindow):
             path.addRoundedRect(0, 0, rect_w, rect_h, 20, 20)
             self.view.setMask(path.toFillPolygon().toPolygon())
 
+    def mouseMovedInsidePlayer(self, event):
+        self.timeline.show()
+        self.controls_widget.show()
+        self.timer.start(4000)
+        self.timer.timeout.connect(self.hide_player_controls)
+
+    def hide_player_controls(self):
+        self.timeline.hide()
+        self.controls_widget.hide()
 
 
 
