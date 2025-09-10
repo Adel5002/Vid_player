@@ -10,6 +10,9 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLineEdit,
 from PySide6.QtCore import QTimer, Qt, QSize, QUrl
 from PySide6.QtGui import QBrush, QColor, QPainter, QRadialGradient, QIcon, QPainterPath, QKeySequence
 
+from utils.preview_thumbnail import TimelinePreview
+from utils.video_preview_slider import VideoPreview
+
 
 class Blob:
     def __init__(self, x, y, radius):
@@ -92,6 +95,9 @@ class MyWidget(QMainWindow):
 
         self.path = QPainterPath()
 
+        # СЛАЙДЕР ПРЕВЬЮ
+
+        self.preview_slider = VideoPreview(video_path, self.central)
 
         # КНОПКИ УПРАВЛЕНИЯ ПРОИГРЫВАТЕЛЕМ
 
@@ -120,7 +126,7 @@ class MyWidget(QMainWindow):
         self.play_pause_btn.clicked.connect(self.togglePlayPause)
 
         # кнопка начала видео
-        self.start_video = QPushButton(self.central)
+        self.start_video = QPushButton(self.central, self.preview_slider)
         self.start_video.setIcon(QIcon('icons/play_bigger.png'))
         self.start_video.setIconSize(QSize(60, 60))
         self.start_video.setFixedSize(100, 100)
@@ -137,8 +143,6 @@ class MyWidget(QMainWindow):
 
 
         # ПОИСКОВАЯ СТРОКА
-
-        # Сделать так чтобы ввод начинал работать только после нажатия на поисковую строку
 
         self.search_layout = QVBoxLayout()
         self.search_layout.setContentsMargins(0, 20, 0, 0)
@@ -211,6 +215,13 @@ class MyWidget(QMainWindow):
             }
         """)
 
+        self.timeline_preview = TimelinePreview(video_path, self.central)
+
+        # показываем кадры при движении ползунка
+        self.timeline.sliderPressed.connect(self.onSliderPressed)
+        self.timeline.sliderMoved.connect(self.onTimelineHover)
+        self.timeline.sliderReleased.connect(self.onSliderReleased)
+
         self.timeline_pos_is_fullscreen = lambda rect: [rect.x() + 10, rect.y() + rect.height() - 90, rect.width() - 20, 20]
         self.timeline_pos_is_small_screen = lambda rect: [rect[0] + 10, rect[1] + rect[3] - 80, rect[2] - 20, 20]
 
@@ -225,6 +236,7 @@ class MyWidget(QMainWindow):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.animate)
+        self.timer.timeout.connect(self.hide_player_controls)
         self.timer.start(40)  # ~25fps
 
         # Убираем фокус с виджетов
@@ -248,13 +260,43 @@ class MyWidget(QMainWindow):
         else:
             return f"{minutes:02}:{seconds:02}"
 
+    def onSliderPressed(self):
+        # ставим видео на паузу
+        self.was_playing = self.is_playing
+        self.player.pause()
+        self.is_playing = False
+
+    def onTimelineHover(self, position_ms):
+        self.mouseMovedInsidePlayer()
+        self.timeline_preview.show_frame_at(position_ms)
+
+        slider_geom = self.timeline.geometry()
+        preview_w = self.timeline_preview.width()
+        x = slider_geom.x() + int(slider_geom.width() * (position_ms / self.timeline.maximum())) - preview_w // 2
+        y = slider_geom.y() - self.timeline_preview.height() - 10
+
+        self.timeline_preview.move(x, y)
+        self.timeline_preview.show()
+
+    def onSliderReleased(self):
+        # когда отпустили слайдер — реально перемещаем плеер
+        position_ms = self.timeline.value()
+        self.player.setPosition(position_ms)
+        self.timeline_preview.hide()
+
+        # если до этого играло — продолжаем
+        if self.was_playing:
+            self.player.play()
+            self.is_playing = True
+
     def keyPressEvent(self, event, /):
         key = event.key()
         native = event.nativeVirtualKey()
 
         if key == Qt.Key_Space:
             self.togglePlayPause()
-        elif native == 0x46:  # это виртуальный код F (одинаковый во всех раскладках)
+            self.mouseMovedInsidePlayer()
+        elif native == 0x46:
             self.makeFullscreen()
         elif key == Qt.Key_Escape:
             self.is_fullscreen = True
@@ -264,17 +306,15 @@ class MyWidget(QMainWindow):
     def onDurationChanged(self, duration_ms):
         if len(self.video_duration_timer.text()) == 0:
             self.view.setMouseTracking(False)
+            self.preview_slider.show()
 
         self.timeline.setRange(0, duration_ms)
-        self.timeline.sliderMoved.connect(self.onSeek)
         self.timeline.setGeometry(*self.timeline_pos_is_small_screen(self.getPlayerRect()))
 
         self.player.positionChanged.connect(self.onVideoMovement)
         self.video_duration_timer.setText(self.format_timedelta(datetime.timedelta(milliseconds=self.player.duration())))
         self.timeline.hide()
 
-    def onSeek(self, position_ms):
-        self.player.setPosition(position_ms)
 
     def onVideoMovement(self, pos):
         self.timeline.setValue(pos)
@@ -321,6 +361,9 @@ class MyWidget(QMainWindow):
             self.graphics_video_item.setPos(0, 0)
             self.graphics_video_item.setSize(rect.size())
             self.view.setSceneRect(0, 0, rect.width(), rect.height())
+
+            self.preview_slider.setGeometry(rect.x(), rect.y(), rect.size().width(), rect.size().height())
+
             self.search_bar.hide()
             self.view.clearMask()
         else:
@@ -331,6 +374,9 @@ class MyWidget(QMainWindow):
             self.graphics_video_item.setPos(0, 0)
             self.graphics_video_item.setSize(QSize(rect_w, rect_h))
             self.view.setSceneRect(0, 0, rect_w, rect_h)
+
+            self.preview_slider.setGeometry(rect_x, rect_y, rect_w, rect_h)
+
             self.search_bar.show()
             path = QPainterPath()
             path.addRoundedRect(0, 0, rect_w, rect_h, 20, 20)
@@ -400,6 +446,7 @@ class MyWidget(QMainWindow):
         if self.is_playing:
             self.player.play()
             self.start_video.hide()
+            self.preview_slider.hide()
         else:
             self.player.pause()
             self.start_video.show()
@@ -424,6 +471,9 @@ class MyWidget(QMainWindow):
             self.graphics_video_item.setPos(0, 0)
             self.graphics_video_item.setSize(rect.size())
             self.view.setSceneRect(0, 0, rect.width(), rect.height())
+
+            self.preview_slider.setGeometry(rect.x(), rect.y(), rect.size().width(), rect.size().height())
+
             self.search_bar.hide()
             self.view.clearMask()
         else:
@@ -437,21 +487,26 @@ class MyWidget(QMainWindow):
             self.graphics_video_item.setPos(0, 0)
             self.graphics_video_item.setSize(QSize(rect_w, rect_h))
             self.view.setSceneRect(0, 0, rect_w, rect_h)
+
+            self.preview_slider.setGeometry(rect_x, rect_y, rect_w, rect_h)
+
             self.search_bar.show()
             path = QPainterPath()
             path.addRoundedRect(0, 0, rect_w, rect_h, 20, 20)
             self.view.setMask(path.toFillPolygon().toPolygon())
 
-    def mouseMovedInsidePlayer(self, event):
+
+    def mouseMovedInsidePlayer(self, event=None):
         self.timeline.show()
         self.controls_widget.show()
         self.timer.start(4000)
-        self.timer.timeout.connect(self.hide_player_controls)
 
     def hide_player_controls(self):
         self.timeline.hide()
         self.controls_widget.hide()
 
+
+# Кнопки промотки, при использовании слайдера показывать кадр
 
 
 def start() -> None:
