@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <iframe id="kodik-player" src="//kodik.cc/serial/37172/55dacb8c87e072e0966bc39ddce66224/720p" width="610" height="370" frameborder="0" allowfullscreen allow="autoplay *; fullscreen *"></iframe>
+
+    <script type="text/javascript">
+    var kodikIframe = document.getElementById("kodik-player").contentWindow;
+
+    kodikIframe.postMessage({ key: "56a40dfa2b3c22e9f8252a8d6cc78b54", value: { method: "seek", seconds: 67 } }, '*');
+    </script>
+</body>
+</html>

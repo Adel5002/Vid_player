@@ -127,7 +127,7 @@ class MyWidget(QMainWindow):
 
         # кнопка начала видео
         self.start_video = QPushButton(self.central, self.preview_slider)
-        self.start_video.setIcon(QIcon('icons/play_bigger.png'))
+        self.start_video.setIcon(QIcon('src/icons/play_bigger.png'))
         self.start_video.setIconSize(QSize(60, 60))
         self.start_video.setFixedSize(100, 100)
         self.start_video.setStyleSheet("background: transparent; border: none;")
@@ -161,7 +161,7 @@ class MyWidget(QMainWindow):
                 font-size: 16px;
             }
         """)
-        search_icon = QIcon("icons/loupe.png")
+        search_icon = QIcon("src/icons/loupe.png")
         self.search_bar.addAction(search_icon, QLineEdit.ActionPosition.TrailingPosition)
         self.search_bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -434,7 +434,7 @@ class MyWidget(QMainWindow):
         painter.drawRoundedRect(x, y, w, h, 20, 20)
 
     def updatePlayPauseIcon(self):
-        icon = QIcon("icons/pause.png") if self.is_playing else QIcon("icons/play.png")
+        icon = QIcon("src/icons/pause.png") if self.is_playing else QIcon("src/icons/play.png")
         self.play_pause_btn.setIcon(icon)
         self.play_pause_btn.setIconSize(QSize(40, 40))
 
@@ -452,7 +452,7 @@ class MyWidget(QMainWindow):
             self.start_video.show()
 
     def updateFullscreenIcon(self):
-        icon = QIcon("icons/minimize.png") if self.is_fullscreen else QIcon("icons/fullscreen.png")
+        icon = QIcon("src/icons/minimize.png") if self.is_fullscreen else QIcon("src/icons/fullscreen.png")
         self.fullscreen_btn.setIcon(icon)
         self.fullscreen_btn.setIconSize(QSize(40, 40))
 
@@ -506,7 +506,7 @@ class MyWidget(QMainWindow):
         self.controls_widget.hide()
 
 
-# Кнопки промотки, при использовании слайдера показывать кадр
+# Кнопки промотки
 
 
 def start() -> None:
