@@ -8,13 +8,11 @@ from starlette.middleware.cors import CORSMiddleware
 from db.db import init_db
 from endpoints.user import router as user_router
 from endpoints.anime import router as anime_router
-from endpoints.anime import add_anime_to_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    asyncio.create_task(add_anime_to_db())
     yield
 
 app = FastAPI(lifespan=lifespan)

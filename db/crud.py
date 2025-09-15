@@ -120,6 +120,10 @@ def get_anime_by_kodik_id(session: Session, kodik_id: int):
     anime = session.scalar(select(Anime).where(Anime.kodik_id == kodik_id))
     return anime
 
+def get_anime_by_title(session: Session, title: str):
+    anime = session.scalar(select(Anime).where(Anime.title == title))
+    return anime
+
 def get_anime_bulk(session: Session, offset: int, limit: int):
     bulk_anime = session.scalars(select(Anime).order_by(desc(Anime.updated_at)).offset(offset).limit(limit)).all()
     return bulk_anime

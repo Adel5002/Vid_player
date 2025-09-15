@@ -4,20 +4,24 @@ import os
 from enum import Enum
 
 import re
+from time import sleep
 
+import dramatiq
 import redis.asyncio as redis
 from urllib.parse import urlparse, parse_qs, urljoin
+from arq import create_pool
+from arq.connections import RedisSettings
 import requests
 from bs4 import BeautifulSoup
+from dramatiq.brokers.redis import RedisBroker
 
-
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from fastapi.params import Depends
 from sqlmodel import Session
 
 from dotenv import load_dotenv
 
-from db.crud import get_anime_by_kodik_id, get_anime_bulk, create_anime, get_all_possible_anime
+from db.crud import get_anime_by_kodik_id, get_anime_bulk, create_anime, get_all_possible_anime, get_anime_by_title
 from db.db import get_session, engine
 from db.models import AnimeCreate, AnimePosterCreate, AnimeRead
 
@@ -203,36 +207,37 @@ async def get_anime_list(
 
     return safe_response
 
-queue = asyncio.Queue()
 
-async def add_anime_to_db():
-    while True:
-        data = await queue.get()
-        with Session(engine) as session:
-            shikimori_poster_link = get_anime_posters(data)
-            anime_data = AnimeCreate(
-                kodik_id=data.get('id'),
-                player_link=data.get('link'),
-                title=data.get('title'),
-                status=data.get('missing'),
-                title_orig=data.get('title_orig'),
-                year=data.get('year'),
-                type=data.get('type'),
-                last_episode=data.get('last_episode'),
-                last_season=data.get('last_season'),
-                created_at=data.get('created_at'),
-                updated_at=data.get('updated_at'),
-                poster=AnimePosterCreate(
-                    shikimori_id=data.get('shikimori_id'),
-                    shikimori_image_link=shikimori_poster_link,
-                    kinopisk_id=data.get('kinopisk_id'),
-                    worldart_link=data.get('worldart_link'),
-                )
+broker = RedisBroker()
+dramatiq.set_broker(broker)
+
+@dramatiq.actor()
+def add_anime_to_db(data: dict):
+    shikimori_poster_link = get_anime_posters(data)
+    with Session(engine) as session:
+        anime_data = AnimeCreate(
+            kodik_id=data.get('id'),
+            player_link=data.get('link'),
+            title=data.get('title'),
+            status=data.get('missing'),
+            title_orig=data.get('title_orig'),
+            year=data.get('year'),
+            type=data.get('type'),
+            last_episode=data.get('last_episode'),
+            last_season=data.get('last_season'),
+            created_at=data.get('created_at'),
+            updated_at=data.get('updated_at'),
+            poster=AnimePosterCreate(
+                shikimori_id=data.get('shikimori_id'),
+                shikimori_image_link=shikimori_poster_link,
+                kinopisk_id=data.get('kinopisk_id'),
+                worldart_link=data.get('worldart_link'),
             )
-            create_anime(session, anime_data)
-            print('Создал новое аниме')
-        await asyncio.sleep(3)
-        queue.task_done()
+        )
+        create_anime(session, anime_data)
+        print('Создал новое аниме')
+
+    sleep(3)
 
 cache = redis.Redis(host='localhost', port=6379, db=0)
 
@@ -259,9 +264,10 @@ async def get_all_anime(page: int = 1, limit: int = 40, session: Session = Depen
                 safe_response = await get_anime_list(limit=limit, next_page=next_page)
                 for item in safe_response.get('results'):
                     anime_in_db = get_anime_by_kodik_id(session, item.get('id'))
-                    if not anime_in_db:
+                    same_title = get_anime_by_title(session, item.get('title'))
+                    if not anime_in_db and not same_title:
                         new_anime_list.append(item)
-                        await queue.put(item)
+                        add_anime_to_db.send_with_options(args=(item,))
                     # Вызываем get_anime_list до тех пор пока не найдем чем заполнить запрашиваемую страницу
                     # после чего формируем таску на добавление инфы об аниме и постере в бд,
                     # у каждой таски будет таймер 30 сек чтобы не спамить апишке
@@ -288,9 +294,6 @@ async def get_all_anime(page: int = 1, limit: int = 40, session: Session = Depen
         # порах это будет проблемой так как бд уже будет достаточно хорошо заполнена а стандартную сортировку я буду
         # выполнять по updated_at который предоставляет кодик и по факту вызовы к кодик будет со временем делаться все
         # реже и реже
-
-
-
 
 
 
