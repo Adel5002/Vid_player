@@ -1,49 +1,28 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
-const AnimeCard = React.forwardRef(({ anime }, ref) => {
-  const [poster, setPoster] = useState("/images/no-poster.png"); // базовый fallback
-
-  useEffect(() => {
-    const fetchPoster = async () => {
-      try {
-        const res = await axios.post(
-          `${import.meta.env.VITE_API_URL}/anime/get-anime-poster`,
-          {
-            shikimori_id: anime.shikimori_id,
-
-          }
-        );
-
-        if (res.data.poster && res.data.poster.length > 0) {
-          setPoster(res.data.poster);
-        }
-      } catch (err) {
-        console.error("Ошибка при загрузке постера:", err);
-        setPoster(anime.screenshots?.[0] || "/images/no-poster.png");
-      }
-    };
-
-    fetchPoster();
-  }, [anime.shikimori_id, anime.screenshots]);
-
+// Компонент карточки аниме
+const AnimeCard = ({ anime }) => {
   return (
-    <div
-      ref={ref}
-      className="border rounded overflow-hidden shadow hover:shadow-lg transition"
-    >
-      <img
-        src={poster}
-        alt={anime.title}
-        className="w-full h-64 object-cover"
-      />
-      <div className="p-2">
-        <h2 className="text-lg font-semibold">{anime.title}</h2>
-        <p className="text-sm text-gray-500">{anime.year}</p>
-        <p className="text-sm text-gray-400">{anime.translation?.title}</p>
+    <div className="anime-card border rounded p-4 shadow mb-4 flex">
+      {anime.poster?.local_image_link || anime.poster?.shikimori_image_link ? (
+        <img
+          src={anime.poster.local_image_link || `https://shikimori.one${anime.poster.shikimori_image_link}`}
+          alt={anime.name}
+          className="w-24 h-36 object-cover mr-4"
+        />
+      ) : (
+        <div className="w-24 h-36 bg-gray-200 mr-4 flex items-center justify-center">
+          No Image
+        </div>
+      )}
+      <div>
+        <h3 className="text-lg font-bold">{anime.name}</h3>
+        <p className="text-sm text-gray-600">Score: {anime.score || "N/A"}</p>
+        <p className="text-sm text-gray-600">Status: {anime.status || "Unknown"}</p>
       </div>
     </div>
   );
-});
+};
+
 
 export default AnimeCard;

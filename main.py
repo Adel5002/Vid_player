@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -14,6 +13,7 @@ from endpoints.anime import router as anime_router
 async def lifespan(app: FastAPI):
     init_db()
     yield
+
 
 app = FastAPI(lifespan=lifespan)
 

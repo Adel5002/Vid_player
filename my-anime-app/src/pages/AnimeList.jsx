@@ -1,95 +1,70 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { fetchAnime } from "../api/anime";
-import AnimeCard from "../components/AnimeCard";
+import AnimeCard from '../components/AnimeCard'
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import axios from "axios";
 
-export default function AnimeList() {
-  const [anime, setAnime] = useState([]);
-  const [pagesCache, setPagesCache] = useState({});
-  const [nextPage, setNextPage] = useState(null);
+const AnimeListPage = () => {
+  const [animeList, setAnimeList] = useState([]);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const observer = useRef();
 
-  const loadAnime = async (pageId = null) => {
-    if (loading) return;
-
-    if (pageId && pagesCache[pageId]) {
-      mergeAnime(pagesCache[pageId]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const data = await fetchAnime(pageId);
-      if (data?.results) {
-        mergeAnime(data.results);
-
-        if (data.next_page) setNextPage(data.next_page);
-
-        const key = pageId || "first";
-        setPagesCache((prev) => ({ ...prev, [key]: data.results }));
-      }
-    } catch (err) {
-      console.error("Ошибка при загрузке аниме:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const mergeAnime = (newItems) => {
-    setAnime((prev) => {
-      const combined = [...prev, ...newItems];
-      const map = new Map();
-
-      combined.forEach((item) => {
-        const key = `${item.title}_${item.year}`;
-        if (!map.has(key)) {
-          map.set(key, { ...item, translations: [item.translation] });
-        } else {
-          map.get(key).translations.push(item.translation);
-        }
-      });
-
-      return Array.from(map.values());
-    });
-  };
-
-  useEffect(() => {
-    loadAnime();
-  }, []);
-
-  const lastElementRef = useCallback(
+  const lastAnimeRef = useCallback(
     (node) => {
       if (loading) return;
       if (observer.current) observer.current.disconnect();
-
       observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && nextPage) {
-          loadAnime(nextPage);
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prevPage) => prevPage + 1);
         }
       });
-
       if (node) observer.current.observe(node);
     },
-    [loading, nextPage]
+    [loading, hasMore]
   );
+
+  useEffect(() => {
+    const fetchAnime = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(
+          `http://localhost:8000/anime/get-all-anime?page=${page}&limit=20`
+        );
+        const newAnime = response.data.results;
+        setAnimeList((prev) => [...prev, ...newAnime]);
+        setHasMore(newAnime.length > 0);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnime();
+  }, [page]);
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Каталог аниме</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {anime.map((item, i) => {
-          if (i === anime.length - 1) {
-            return <AnimeCard ref={lastElementRef} key={item.id} anime={item} />;
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Anime List</h1>
+      <div className="flex flex-col">
+        {animeList.map((anime, index) => {
+            console.log(anime)
+          if (animeList.length === index + 1) {
+            return (
+              <div ref={lastAnimeRef} key={`${anime.id}-${index}`}>
+                <AnimeCard anime={anime} />
+              </div>
+            );
+          } else {
+            return <AnimeCard key={`${anime.id}-${index}`} anime={anime} />;
           }
-          return <AnimeCard key={item.id} anime={item} />;
         })}
       </div>
-
-      {loading && <p className="mt-4 text-center">Загрузка...</p>}
-      {!nextPage && !loading && anime.length > 0 && (
-        <p className="mt-4 text-center text-gray-500">Больше нет аниме для подгрузки</p>
-      )}
+      {loading && <p className="text-center mt-4">Loading...</p>}
+      {!hasMore && <p className="text-center mt-4">No more anime to load</p>}
     </div>
   );
-}
+};
+
+export default AnimeListPage;

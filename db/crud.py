@@ -1,11 +1,19 @@
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import HTTPException
+from numpy.random.mtrand import Sequence
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select, desc
-from .models import User, UserCreate, UserUpdate, AnimeCreate, Anime, AnimePoster, Genre, AnimeGenreLink, GenreCreate, \
-    AnimePosterCreate
+
+from .models import (
+    User, UserCreate, UserUpdate,
+    Anime, AnimeCreate, AnimePoster, AnimePosterCreate,
+    Genre, GenreCreate, AnimeGenreLink,
+    AnimeInfo, AnimeInfoCreate
+)
 
 
+# ------------------ User ------------------
 def create_user(session: Session, user_data: UserCreate) -> User:
     user = User(
         username=user_data.username,
@@ -18,26 +26,23 @@ def create_user(session: Session, user_data: UserCreate) -> User:
     return user
 
 
-def get_user(session: Session, user_id: int) -> User | None:
+def get_user(session: Session, user_id: int) -> Optional[User]:
     return session.get(User, user_id)
 
 
-def get_user_by_username(session: Session, username: str) -> User | None:
-    statement = select(User).where(User.username == username)
-    return session.exec(statement).first()
+def get_user_by_username(session: Session, username: str) -> Optional[User]:
+    return session.exec(select(User).where(User.username == username)).first()
 
 
-def update_user(session: Session, user_id: int, user_data: UserUpdate) -> User | None:
+def update_user(session: Session, user_id: int, user_data: UserUpdate) -> Optional[User]:
     user = session.get(User, user_id)
     if not user:
         return None
 
-    update_data = user_data.dict(exclude_unset=True)  # только переданные поля
-
+    update_data = user_data.dict(exclude_unset=True)
     for key, value in update_data.items():
         if key == "password":
-            # TODO: хэшировать пароль
-            setattr(user, "hashed_password", value)
+            setattr(user, "hashed_password", value)  # TODO: хэшировать пароль
         else:
             setattr(user, key, value)
 
@@ -56,34 +61,17 @@ def delete_user(session: Session, user_id: int) -> bool:
     return True
 
 
-def create_anime(session: Session, anime_data: AnimeCreate) -> "Anime":
-
-    # создаем аниме
-    anime = Anime(
-        kodik_id=anime_data.kodik_id,
-        player_link=anime_data.player_link,
-        title=anime_data.title,
-        title_orig=anime_data.title_orig,
-        year=anime_data.year,
-        type=anime_data.type,
-        status=anime_data.status,
-        last_episode=anime_data.last_episode,
-        last_season=anime_data.last_season,
-        created_at=anime_data.created_at,
-        updated_at=anime_data.updated_at,
-    )
+# ------------------ Anime ------------------
+def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:
+    anime = Anime(**anime_data.dict(exclude={"poster"}))
     session.add(anime)
     session.commit()
     session.refresh(anime)
 
-    # создаем постер если есть
     if anime_data.poster:
         poster = AnimePoster(
             anime_id=anime.id,
-            shikimori_id=anime_data.poster.shikimori_id,
             shikimori_image_link=anime_data.poster.shikimori_image_link,
-            kinopoisk_id=anime_data.poster.kinopoisk_id,
-            worldart_link=anime_data.poster.worldart_link,
             local_image_link=anime_data.poster.local_image_link,
         )
         session.add(poster)
@@ -91,57 +79,51 @@ def create_anime(session: Session, anime_data: AnimeCreate) -> "Anime":
         session.refresh(poster)
         anime.poster = poster
 
-    # создаем жанры
-    if anime_data.genres:
-        for g in anime_data.genres:
-            # проверяем, есть ли уже такой жанр
-            genre = session.exec(select(Genre).where(Genre.name == g.name)).first()
-            if not genre:
-                genre = Genre(name=g.name)
-                session.add(genre)
-                session.commit()
-                session.refresh(genre)
-            # связываем с аниме
-            link = AnimeGenreLink(anime_id=anime.id, genre_id=genre.id)
-            session.add(link)
-        session.commit()
-
     return anime
 
 
-def read_anime(session: Session, anime_id: int) -> Optional["Anime"]:
+def read_anime(session: Session, anime_id: int) -> Anime:
     anime = session.get(Anime, anime_id)
     if not anime:
-        raise HTTPException(404, 'Anime not found')
+        raise HTTPException(404, "Anime not found")
     return anime
 
 
-def get_anime_by_kodik_id(session: Session, kodik_id: int):
-    anime = session.scalar(select(Anime).where(Anime.kodik_id == kodik_id))
-    return anime
-
-def get_anime_by_title(session: Session, title: str):
-    anime = session.scalar(select(Anime).where(Anime.title == title))
-    return anime
-
-def get_anime_bulk(session: Session, offset: int, limit: int):
-    bulk_anime = session.scalars(select(Anime).order_by(desc(Anime.updated_at)).offset(offset).limit(limit)).all()
-    return bulk_anime
+def get_anime_by_name(session: Session, name: str) -> Optional[Anime]:
+    return session.exec(select(Anime).where(Anime.name == name)).first()
 
 
-def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Optional["Anime"]:
+def get_anime_by_shikimori_id(session: Session, shikimori_id: int) -> Optional[Anime]:
+    return session.exec(select(Anime).where(Anime.shikimori_id == shikimori_id)).first()
+
+
+def get_anime_bulk(session: Session, offset: int, limit: int) -> Sequence[Anime]:
+    return session.scalars(
+        select(Anime)
+        .options(selectinload(Anime.poster))
+        .order_by(desc(Anime.score))
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+
+def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Optional[Anime]:
     anime = session.get(Anime, anime_id)
     if not anime:
         return None
+
     for field, value in anime_data.dict(exclude_unset=True).items():
         setattr(anime, field, value)
+
     session.add(anime)
     session.commit()
     session.refresh(anime)
     return anime
 
-def get_all_possible_anime(session: Session):
-    return session.scalars(select(Anime)).all()
+
+def get_all_possible_anime(session: Session) -> Sequence[Anime]:
+    return session.exec(select(Anime)).all()
+
 
 def delete_anime(session: Session, anime_id: int) -> bool:
     anime = session.get(Anime, anime_id)
@@ -152,8 +134,89 @@ def delete_anime(session: Session, anime_id: int) -> bool:
     return True
 
 
+# ------------------ Anime Info ------------------
+def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo:
+    anime_info = AnimeInfo(**info_data.dict(exclude={"genres"}))
+    session.add(anime_info)
+    session.commit()
+    session.refresh(anime_info)
+
+    if info_data.genres:
+        for g in info_data.genres:
+            genre = session.exec(select(Genre).where(Genre.name == g.name)).first()
+            if not genre:
+                genre = Genre(name=g.name)
+                session.add(genre)
+                session.commit()
+                session.refresh(genre)
+            link = AnimeGenreLink(anime_info_id=anime_info.id, genre_id=genre.id)
+            session.add(link)
+        session.commit()
+
+    return anime_info
+
+
+def read_anime_info(session: Session, info_id: int) -> AnimeInfo:
+    info = session.get(AnimeInfo, info_id)
+    if not info:
+        raise HTTPException(404, "AnimeInfo not found")
+    return info
+
+
+def get_anime_info_by_anime_id(session: Session, anime_id: int) -> Optional[AnimeInfo]:
+    return session.exec(select(AnimeInfo).where(AnimeInfo.anime_id == anime_id)).first()
+
+
+def update_anime_info(session: Session, info_id: int, info_data: AnimeInfoCreate) -> Optional[AnimeInfo]:
+    info = session.get(AnimeInfo, info_id)
+    if not info:
+        return None
+
+    for field, value in info_data.dict(exclude_unset=True).items():
+        if field != "genres":
+            setattr(info, field, value)
+
+    session.add(info)
+    session.commit()
+    session.refresh(info)
+
+    if info_data.genres:
+        # удаляем старые связи
+        old_links = session.exec(select(AnimeGenreLink).where(AnimeGenreLink.anime_info_id == info.id)).all()
+        for link in old_links:
+            session.delete(link)
+        session.commit()
+
+        # добавляем новые
+        for g in info_data.genres:
+            genre = session.exec(select(Genre).where(Genre.name == g.name)).first()
+            if not genre:
+                genre = Genre(name=g.name)
+                session.add(genre)
+                session.commit()
+                session.refresh(genre)
+            link = AnimeGenreLink(anime_info_id=info.id, genre_id=genre.id)
+            session.add(link)
+        session.commit()
+
+    return info
+
+
+def delete_anime_info(session: Session, info_id: int) -> bool:
+    info = session.get(AnimeInfo, info_id)
+    if not info:
+        return False
+    session.delete(info)
+    session.commit()
+    return True
+
+
+def get_all_anime_info(session: Session) -> List[AnimeInfo]:
+    return session.exec(select(AnimeInfo)).all()
+
+
 # ------------------ Genre ------------------
-def create_genre(session: Session, genre_data: GenreCreate) -> "Genre":
+def create_genre(session: Session, genre_data: GenreCreate) -> Genre:
     genre = Genre(name=genre_data.name)
     session.add(genre)
     session.commit()
@@ -161,18 +224,16 @@ def create_genre(session: Session, genre_data: GenreCreate) -> "Genre":
     return genre
 
 
-def read_genre(session: Session, genre_id: int) -> Optional["Genre"]:
+def read_genre(session: Session, genre_id: int) -> Optional[Genre]:
     return session.get(Genre, genre_id)
 
 
-# ------------------ AnimePoster ------------------
-def create_anime_poster(session: Session, anime_id: int, poster_data: AnimePosterCreate) -> "AnimePoster":
+# ------------------ Anime Poster ------------------
+def create_anime_poster(session: Session, anime_id: int, poster_data: AnimePosterCreate) -> AnimePoster:
     poster = AnimePoster(
         anime_id=anime_id,
-        shikimori_id=poster_data.shikimori_id,
-        kinopoisk_id=poster_data.kinopoisk_id,
-        worldart_link=poster_data.worldart_link,
-        local_image_link=poster_data.local_image_link
+        shikimori_image_link=poster_data.shikimori_image_link,
+        local_image_link=poster_data.local_image_link,
     )
     session.add(poster)
     session.commit()
@@ -180,5 +241,5 @@ def create_anime_poster(session: Session, anime_id: int, poster_data: AnimePoste
     return poster
 
 
-def read_anime_poster(session: Session, poster_id: int) -> Optional["AnimePoster"]:
+def read_anime_poster(session: Session, poster_id: int) -> Optional[AnimePoster]:
     return session.get(AnimePoster, poster_id)
