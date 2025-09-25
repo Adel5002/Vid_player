@@ -66,12 +66,20 @@ class Anime(SQLModel, table=True):
     episodes_aired: int = 0
     aired_on: Optional[date] = None
     released_on: Optional[date] = None
+    season: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    poster: Optional["AnimePoster"] = Relationship(back_populates="anime", sa_relationship_kwargs={"uselist": False})
-    info: Optional["AnimeInfo"] = Relationship(back_populates="anime", sa_relationship_kwargs={"uselist": False})
+    poster: Optional["AnimePoster"] = Relationship(
+        back_populates="anime",
+        sa_relationship_kwargs={"uselist": False},
+    )
+
+    info: Optional["AnimeInfo"] = Relationship(
+        back_populates="anime",
+        sa_relationship_kwargs={"uselist": False},
+    )
 
 
 class AnimeCreate(SQLModel):
@@ -87,6 +95,7 @@ class AnimeCreate(SQLModel):
     aired_on: Optional[date] = None
     released_on: Optional[date] = None
     poster: Optional["AnimePosterCreate"] = None
+    season: Optional[str] = None
 
 
 class AnimeRead(SQLModel):
@@ -104,6 +113,7 @@ class AnimeRead(SQLModel):
     released_on: Optional[date] = None
     poster: Optional["AnimePosterRead"] = None
     info: Optional["AnimeInfoRead"] = None
+    season: Optional[str] = None
 
 
 # --- JSON Helper ---
@@ -155,6 +165,8 @@ class AnimeInfo(SQLModel, table=True):
     videos: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     screenshots: Optional[List] = Field(default=None, sa_column=Column(JSON))
     user_rate: Optional[float] = None
+    isCensored: Optional[bool] = False
+
 
     anime: Optional["Anime"] = Relationship(back_populates="info", sa_relationship_kwargs={"uselist": False})
     genres: List["Genre"] = Relationship(back_populates="info", link_model=AnimeGenreLink)
@@ -229,7 +241,8 @@ class AnimeInfoRead(SQLModel):
 class AnimePoster(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     anime_id: Optional[int] = Field(default=None, foreign_key="anime.id")
-    shikimori_image_link: Optional[str] = None
+    originalUrl: Optional[str] = None
+    mainUrl: Optional[str] = None
     local_image_link: Optional[str] = None
 
     anime: Optional["Anime"] = Relationship(back_populates="poster")
@@ -237,18 +250,21 @@ class AnimePoster(SQLModel, table=True):
 
 class AnimePosterCreate(SQLModel):
     anime_id: Optional[int] = None
-    shikimori_image_link: Optional[str] = None
+    originalUrl: Optional[str] = None
+    mainUrl: Optional[str] = None
     local_image_link: Optional[str] = None
 
 
 class AnimePosterRead(SQLModel):
     id: int
     anime_id: Optional[int] = None
-    shikimori_image_link: Optional[str] = None
+    originalUrl: Optional[str] = None
+    mainUrl: Optional[str] = None
     local_image_link: Optional[str] = None
 
 
 class AnimePosterUpdate(SQLModel):
     anime_id: Optional[int] = None
-    shikimori_image_link: Optional[str] = None
+    originalUrl: Optional[str] = None
+    mainUrl: Optional[str] = None
     local_image_link: Optional[str] = None

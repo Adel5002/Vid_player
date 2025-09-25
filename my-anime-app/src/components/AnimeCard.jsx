@@ -1,28 +1,39 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React from "react";
 
-// Компонент карточки аниме
 const AnimeCard = ({ anime }) => {
   return (
-    <div className="anime-card border rounded p-4 shadow mb-4 flex">
-      {anime.poster?.local_image_link || anime.poster?.shikimori_image_link ? (
-        <img
-          src={anime.poster.local_image_link || `https://shikimori.one${anime.poster.shikimori_image_link}`}
-          alt={anime.name}
-          className="w-24 h-36 object-cover mr-4"
+    <div className="relative group rounded-xl overflow-hidden shadow-lg bg-gray-900">
+      {/* Постер */}
+      <img
+        src={anime.poster?.mainUrl || anime.poster?.originalUrl || anime.poster?.original || "/placeholder.jpg" }
+        alt={anime.russian || anime.name}
+        className="w-full h-[340px] object-cover transition-transform duration-300 group-hover:scale-105"
+      />
+
+      {/* Информационный блок (появляется при наведении) */}
+      <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/90 to-black/50 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <h3 className="text-white text-lg font-bold truncate">
+          {anime.russian || anime.name}
+        </h3>
+        <p className="text-yellow-400 text-sm mb-1">⭐ {anime.score || "N/A"}</p>
+        <div
+          className="text-gray-300 text-xs line-clamp-4"
+          dangerouslySetInnerHTML={{ __html: anime.info?.description_html || "" }}
         />
-      ) : (
-        <div className="w-24 h-36 bg-gray-200 mr-4 flex items-center justify-center">
-          No Image
-        </div>
-      )}
-      <div>
-        <h3 className="text-lg font-bold">{anime.name}</h3>
-        <p className="text-sm text-gray-600">Score: {anime.score || "N/A"}</p>
-        <p className="text-sm text-gray-600">Status: {anime.status || "Unknown"}</p>
+        <p
+          className={`mt-2 text-xs font-semibold ${
+            anime.status === "ongoing"
+              ? "text-red-400"
+              : anime.status === "released"
+              ? "text-green-400"
+              : "text-gray-400"
+          }`}
+        >
+          {anime.status?.toUpperCase()}
+        </p>
       </div>
     </div>
   );
 };
-
 
 export default AnimeCard;

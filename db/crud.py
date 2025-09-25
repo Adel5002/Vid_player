@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional, List
 
 from fastapi import HTTPException
@@ -9,7 +10,7 @@ from .models import (
     User, UserCreate, UserUpdate,
     Anime, AnimeCreate, AnimePoster, AnimePosterCreate,
     Genre, GenreCreate, AnimeGenreLink,
-    AnimeInfo, AnimeInfoCreate
+    AnimeInfo, AnimeInfoCreate, AnimeRead
 )
 
 
@@ -71,7 +72,8 @@ def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:
     if anime_data.poster:
         poster = AnimePoster(
             anime_id=anime.id,
-            shikimori_image_link=anime_data.poster.shikimori_image_link,
+            originalUrl=anime_data.poster.originalUrl,
+            mainUrl=anime_data.poster.mainUrl,
             local_image_link=anime_data.poster.local_image_link,
         )
         session.add(poster)
@@ -97,14 +99,39 @@ def get_anime_by_shikimori_id(session: Session, shikimori_id: int) -> Optional[A
     return session.exec(select(Anime).where(Anime.shikimori_id == shikimori_id)).first()
 
 
-def get_anime_bulk(session: Session, offset: int, limit: int) -> Sequence[Anime]:
-    return session.scalars(
+def get_anime_bulk(session: Session) -> Sequence[Anime]:
+    current_year = str(datetime.date.today().year)
+    anime = session.scalars(
         select(Anime)
-        .options(selectinload(Anime.poster))
         .order_by(desc(Anime.score))
-        .offset(offset)
-        .limit(limit)
+        .options(
+            selectinload(Anime.info),
+            selectinload(Anime.poster)
+        )
     ).all()
+
+    result = []
+    for item in anime:
+        result.append(
+                AnimeRead(
+                id=item.id,
+                shikimori_id=item.shikimori_id,
+                name=item.name,
+                russian=item.russian,
+                url=item.url,
+                kind=item.kind,
+                score=item.score,
+                status=item.status,
+                episodes=item.episodes,
+                episodes_aired=item.episodes_aired,
+                aired_on=item.aired_on,
+                released_on=item.released_on,
+                poster=item.poster,
+                info=item.info,
+                season=item.season,
+            )
+        )
+    return result
 
 
 def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Optional[Anime]:
@@ -232,7 +259,8 @@ def read_genre(session: Session, genre_id: int) -> Optional[Genre]:
 def create_anime_poster(session: Session, anime_id: int, poster_data: AnimePosterCreate) -> AnimePoster:
     poster = AnimePoster(
         anime_id=anime_id,
-        shikimori_image_link=poster_data.shikimori_image_link,
+        originalUrl=poster_data.poster.originalUrl,
+        mainUrl=poster_data.poster.mainUrl,
         local_image_link=poster_data.local_image_link,
     )
     session.add(poster)

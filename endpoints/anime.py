@@ -1,5 +1,5 @@
 import json
-import os
+import datetime
 from time import sleep
 
 import dramatiq
@@ -21,6 +21,8 @@ from db.models import (
     AnimeInfoCreate, Anime
 )
 
+from utils.graphql_requests import get_anime_list
+
 load_dotenv()
 
 router = APIRouter()
@@ -33,27 +35,6 @@ SHIKIMORI_HEADERS = {
     "Accept": "application/json",
 }
 
-# ------------------ Shikimori API ------------------
-async def get_anime_list(
-    limit: int = 50,
-    order: str = "popularity",
-    status: str = "ongoing",
-    page: int = 1
-):
-    endpoint = (
-        f"{os.getenv('SHIKIMORI_API_V1')}/animes"
-        f"?limit={limit}"
-        f"&order={order}"
-        f"&status={status}"
-        f"&page={page}"
-    )
-
-    response = requests.get(endpoint, headers=SHIKIMORI_HEADERS, timeout=15)
-    if response.status_code != 200:
-        raise HTTPException(response.status_code, "Failed to fetch from Shikimori API")
-
-    return response.json()
-
 
 # ------------------ Dramatiq ------------------
 broker = RedisBroker()
@@ -63,7 +44,8 @@ dramatiq.set_broker(broker)
 @dramatiq.actor(max_retries=5, min_backoff=1000, max_backoff=30000)
 def add_anime_to_db(data: dict):
     """Асинхронное добавление аниме в базу через Dramatiq."""
-    poster_link = data.get("image", {}).get("original")
+    originalUrl = data.get("poster", {}).get("originalUrl")
+    mainUrl = data.get("poster", {}).get("mainUrl")
 
     # Запрос подробной информации
     url = f"https://shikimori.one/api/animes/{data.get('id')}"
@@ -77,14 +59,16 @@ def add_anime_to_db(data: dict):
             russian=data.get("russian"),
             url=data.get("url"),
             kind=data.get("kind"),
-            score=data.get("score"),
+            score=str(data.get("score")),
             status=data.get("status"),
             episodes=data.get("episodes", 0),
             episodes_aired=data.get("episodes_aired", 0),
             aired_on=data.get("aired_on"),
             released_on=data.get("released_on"),
+            season=data.get("season"),
             poster=AnimePosterCreate(
-                shikimori_image_link=poster_link,
+                originalUrl=originalUrl,
+                mainUrl=mainUrl,
                 local_image_link=None,
             ),
         )
@@ -134,60 +118,58 @@ async def get_full_anime_list(session: Session = Depends(get_session)):
     return get_all_possible_anime(session)
 
 
-def anime_to_dict(anime: Anime) -> dict:
-    """Сериализация ORM объекта в словарь с вложенными объектами"""
-    return {
-        "id": anime.id,
-        "shikimori_id": anime.shikimori_id,
-        "name": anime.name,
-        "russian": anime.russian,
-        "url": anime.url,
-        "kind": anime.kind,
-        "score": anime.score,
-        "status": anime.status,
-        "episodes": anime.episodes,
-        "episodes_aired": anime.episodes_aired,
-        "aired_on": anime.aired_on.isoformat() if anime.aired_on else None,
-        "released_on": anime.released_on.isoformat() if anime.released_on else None,
-        "poster": {
-            "shikimori_image_link": anime.poster.shikimori_image_link if anime.poster else None,
-            "local_image_link": anime.poster.local_image_link if anime.poster else None,
-        } if anime.poster else None,
-    }
+
+def filter_and_sort_anime(anime_list: list[Anime], season: str = None) -> list[dict]:
+    anime_list = [i.model_dump() for i in anime_list]
+
+
+    # 1. фильтруем только те, где season содержит текущий год
+    if season:
+        anime_list = [a for a in anime_list if season in (a.get("season") or "")]
+
+    # 2. сортируем по score по убыванию
+    anime_list = sorted(anime_list, key=lambda x: float(x.get("score")) or 0, reverse=True)
+
+    # 3. сортируем по статусу: ongoing -> released -> anons
+    status_order = {"ongoing": 0, "released": 1, "anons": 2}
+    anime_list.sort(key=lambda x: status_order.get(x.get("status"), 99))
+
+    return anime_list
 
 @router.get("/get-all-anime")
-async def get_all_anime(page: int = 1, limit: int = 50, session: Session = Depends(get_session)):
-    cached = await cache.get(str(page))
+async def get_all_anime(
+        season: str = "",
+        page: int = 1,
+        limit: int = 50,
+        session: Session = Depends(get_session)
+):
+    cache_key = f"anime:{season}:{page}:{limit}"
+    cached = await cache.get(cache_key)
     if cached:
-        return {"results": json.loads(cached), "page": page, "limit": limit}
+        print("⚡ Отдаю из кэша:", cache_key)
+        return json.loads(cached)
 
+    bulk_anime = get_anime_bulk(session)
+    start, end = (page - 1) * limit, page * limit
 
-    bulk_anime = [anime_to_dict(a) for a in get_anime_bulk(session, (page - 1) * limit, page * limit)]
-
-    if len(bulk_anime) < limit:
-        
-        next_page = page
+    if len(bulk_anime) < page * limit:
         new_anime_list = []
-        anime_cnt = limit - len(bulk_anime)
+        safe_response = await get_anime_list(limit=limit, page=page)
+        if len(safe_response) < limit:
+            raise HTTPException(404, "Last page reached")
 
-        while len(new_anime_list) < anime_cnt:
-            safe_response = await get_anime_list(limit=limit, page=next_page)
-            for item in safe_response:
-                anime_in_db = get_anime_by_shikimori_id(session, item.get("id"))
-                if not anime_in_db:
-                    new_anime_list.append(item)
-                    add_anime_to_db.send_with_options(args=(item,))
+        for item in safe_response:
+            new_anime_list.append(item)
+            anime_in_db = get_anime_by_shikimori_id(session, item.get("id"))
+            if not anime_in_db:
+                add_anime_to_db.send_with_options(args=(item,))
 
-                if len(new_anime_list) >= anime_cnt:
-                    break
+        anime_list = filter_and_sort_anime(bulk_anime + new_anime_list, season)
+    else:
+        anime_list = filter_and_sort_anime(bulk_anime, season)
 
-            if len(safe_response) < limit:
-                raise HTTPException(404, "Last page reached")
+    results = {"results": anime_list[start:end], "page": page, "limit": limit}
 
-            next_page += 1
+    await cache.set(cache_key, json.dumps(results), ex=300)  # кэш на 5 минут
+    return results
 
-        final_page = bulk_anime + new_anime_list[:anime_cnt]
-        await cache.set(str(page), json.dumps(final_page), ex=300)
-        return {"results": final_page, "page": page, "limit": limit}
-
-    return {"results": bulk_anime, "page": page, "limit": limit}

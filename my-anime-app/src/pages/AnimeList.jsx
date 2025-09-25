@@ -1,4 +1,4 @@
-import AnimeCard from '../components/AnimeCard'
+import AnimeCard from "../components/AnimeCard";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 
@@ -44,25 +44,50 @@ const AnimeListPage = () => {
     fetchAnime();
   }, [page]);
 
+  const statusOrder = ["ongoing", "released", "anons"];
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "ongoing": return "text-red-600";
+      case "released": return "text-green-600";
+      case "anons": return "text-gray-600";
+      default: return "text-gray-400";
+    }
+  };
+
+  // сгруппировать по статусу
+  const groupedByStatus = statusOrder.map((status) => ({
+    status,
+    list: animeList.filter((a) => a.status === status),
+  })).filter((group) => group.list.length > 0);
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Anime List</h1>
-      <div className="flex flex-col">
-        {animeList.map((anime, index) => {
-            console.log(anime)
-          if (animeList.length === index + 1) {
-            return (
-              <div ref={lastAnimeRef} key={`${anime.id}-${index}`}>
-                <AnimeCard anime={anime} />
-              </div>
-            );
-          } else {
-            return <AnimeCard key={`${anime.id}-${index}`} anime={anime} />;
-          }
-        })}
-      </div>
-      {loading && <p className="text-center mt-4">Loading...</p>}
-      {!hasMore && <p className="text-center mt-4">No more anime to load</p>}
+    <div className="container mx-auto px-4 py-8 space-y-12">
+
+      {groupedByStatus.map((group) => (
+        <section key={group.status} className="space-y-4">
+          <h2 className={`text-2xl font-bold mb-4 ${getStatusColor(group.status)}`}>
+            {group.status.toUpperCase()}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {group.list.map((anime, index) => {
+              const isLast = group.list.length === index + 1 && group.status === groupedByStatus[groupedByStatus.length-1].status;
+              return (
+                <div key={anime.id} ref={isLast ? lastAnimeRef : null}>
+                  <AnimeCard anime={anime} height="h-64" />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      {loading && (
+        <p className="text-center mt-6 text-gray-500 animate-pulse">Loading...</p>
+      )}
+
+      {!hasMore && !loading && (
+        <p className="text-center mt-6 text-gray-400">🎉 No more anime to load</p>
+      )}
     </div>
   );
 };

@@ -6,7 +6,10 @@ import './index.css'
 
 
 function App() {
-  return <AnimeListPage />;
+  return (
+    <div className="min-h-screen bg-[#272a36] text-white">
+      <AnimeListPage />
+    </div>
+  )
 }
-
 export default App
