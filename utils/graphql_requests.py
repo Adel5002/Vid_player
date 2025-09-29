@@ -12,7 +12,7 @@ load_dotenv()
 
 
 
-async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', status: str = '', page: int = 1):
+async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', status: str = '', page: int = 1) -> dict:
     client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL")))
 
     query = gql(
@@ -69,6 +69,63 @@ async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', 
         result = await session.execute(query, variable_values=variables)
         return result["animes"]
 
+async def search_for_anime(anime_id: str) -> dict:
+    client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL")))
+    print("БЫЛ СДЕЛАН ЗАПРОС К ШИКИМОРИ!!!!!!")
+    query = gql(
+        """
+       query getAnimeList ($ids: String!) {
+          animes(ids: $ids) {
+            id
+            malId
+            name
+            russian
+            licenseNameRu
+            english
+            japanese
+            synonyms
+            kind
+            rating
+            score
+            status
+            episodes
+            episodesAired
+            duration
+            airedOn { year month day date }
+            releasedOn { year month day date }
+            url
+            season
+
+            poster { id originalUrl mainUrl }
+
+            fansubbers
+            fandubbers
+            licensors
+            createdAt,
+            updatedAt,
+            nextEpisodeAt,
+            isCensored
+
+            genres { id name russian kind }
+            studios { id name imageUrl }
+
+            videos { id url name kind playerUrl imageUrl }
+            screenshots { id originalUrl }
+
+            description
+            descriptionHtml
+            descriptionSource
+          }
+        }
+        """
+    )
+
+    variables = {"ids": anime_id}
+
+    async with client as session:
+        result = await session.execute(query, variable_values=variables)
+        return result["animes"]
+
 if __name__ == "__main__":
-    data = asyncio.run(get_anime_list(limit=50, page=2))
+    data = asyncio.run(search_for_anime(anime_id="52807"))
     print(json.dumps(data, indent=4))

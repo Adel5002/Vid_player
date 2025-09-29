@@ -48,8 +48,8 @@ class GenreCreate(SQLModel):
 
 
 class GenreRead(SQLModel):
-    id: int
-    name: str
+    id: Optional[int]
+    name: Optional[str]
 
 
 # --- Anime ---
@@ -64,8 +64,8 @@ class Anime(SQLModel, table=True):
     status: Optional[str] = None
     episodes: int = 0
     episodes_aired: int = 0
-    aired_on: Optional[date] = None
-    released_on: Optional[date] = None
+    aired_on: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    released_on: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     season: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -92,9 +92,10 @@ class AnimeCreate(SQLModel):
     status: Optional[str] = None
     episodes: int = 0
     episodes_aired: int = 0
-    aired_on: Optional[date] = None
-    released_on: Optional[date] = None
+    aired_on: Optional[dict] = None
+    released_on: Optional[dict] = None
     poster: Optional["AnimePosterCreate"] = None
+    info: Optional["AnimeInfoCreate"] = None
     season: Optional[str] = None
 
 
@@ -109,8 +110,8 @@ class AnimeRead(SQLModel):
     status: Optional[str] = None
     episodes: int
     episodes_aired: int
-    aired_on: Optional[date] = None
-    released_on: Optional[date] = None
+    aired_on: Optional[dict] = None
+    released_on: Optional[dict] = None
     poster: Optional["AnimePosterRead"] = None
     info: Optional["AnimeInfoRead"] = None
     season: Optional[str] = None
@@ -140,8 +141,8 @@ class AnimeInfo(SQLModel, table=True):
     shikimori_id: Optional[int] = Field(default=None, unique=True)
 
     rating: Optional[str] = None
-    english: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
-    japanese: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
+    english: Optional[str] = Field(default=None)
+    japanese: Optional[str] = Field(default=None)
     synonyms: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     license_name_ru: Optional[str] = None
     duration: Optional[int] = 0
@@ -169,15 +170,15 @@ class AnimeInfo(SQLModel, table=True):
 
 
     anime: Optional["Anime"] = Relationship(back_populates="info", sa_relationship_kwargs={"uselist": False})
-    genres: List["Genre"] = Relationship(back_populates="info", link_model=AnimeGenreLink)
+    genres: Optional[List["Genre"]] = Relationship(back_populates="info", link_model=AnimeGenreLink)
 
 
 class AnimeInfoCreate(SQLModel):
     anime_id: int
     shikimori_id: Optional[int] = None
     rating: Optional[str] = None
-    english: Optional[List] = None
-    japanese: Optional[List] = None
+    english: Optional[str] = None
+    japanese: Optional[str] = None
     synonyms: Optional[List] = None
     license_name_ru: Optional[str] = None
     duration: Optional[int] = 0
@@ -209,8 +210,8 @@ class AnimeInfoRead(SQLModel):
     anime_id: int
     shikimori_id: Optional[int] = None
     rating: Optional[str] = None
-    english: Optional[List] = None
-    japanese: Optional[List] = None
+    english: Optional[str] = None
+    japanese: Optional[str] = None
     synonyms: Optional[List] = None
     license_name_ru: Optional[str] = None
     duration: Optional[int] = 0
@@ -234,7 +235,8 @@ class AnimeInfoRead(SQLModel):
     videos: Optional[List] = None
     screenshots: Optional[List] = None
     user_rate: Optional[float] = None
-    genres: List["GenreRead"] = []
+
+    genres: Optional[List["GenreRead"]] = None
 
 
 # --- Poster ---

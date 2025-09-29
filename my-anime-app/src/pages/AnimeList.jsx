@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 
 const AnimeListPage = () => {
+  const apiUrl = import.meta.env.VITE_API_URL
   const [animeList, setAnimeList] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ const AnimeListPage = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          `http://localhost:8000/anime/get-all-anime?page=${page}&limit=20`
+          `${apiUrl}/anime/get-all-anime?page=${page}&limit=20`
         );
         const newAnime = response.data.results;
         setAnimeList((prev) => [...prev, ...newAnime]);

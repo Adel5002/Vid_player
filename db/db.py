@@ -1,10 +1,11 @@
 from sqlmodel import SQLModel, create_engine, Session
 
-DATABASE_URL = "sqlite:///./app.db"  # потом можно заменить на Postgres
+DATABASE_URL = "postgresql+psycopg2://anime:anime@db:5432/anime"
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 
 def init_db():
+    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
 def get_session():

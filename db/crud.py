@@ -4,6 +4,7 @@ from typing import Optional, List
 from fastapi import HTTPException
 from numpy.random.mtrand import Sequence
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, desc
 
 from .models import (
@@ -64,11 +65,15 @@ def delete_user(session: Session, user_id: int) -> bool:
 
 # ------------------ Anime ------------------
 def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:
-    anime = Anime(**anime_data.dict(exclude={"poster"}))
-    session.add(anime)
-    session.commit()
-    session.refresh(anime)
+    anime = Anime(**anime_data.model_dump(exclude={"poster"}))
+    try:
+        session.add(anime)
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        anime = session.query(Anime).filter_by(shikimori_id=anime_data.shikimori_id).first()
 
+    # постер
     if anime_data.poster:
         poster = AnimePoster(
             anime_id=anime.id,
@@ -76,9 +81,8 @@ def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:
             mainUrl=anime_data.poster.mainUrl,
             local_image_link=anime_data.poster.local_image_link,
         )
-        session.add(poster)
+        session.merge(poster)
         session.commit()
-        session.refresh(poster)
         anime.poster = poster
 
     return anime
@@ -134,10 +138,37 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
     return result
 
 
-def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Optional[Anime]:
+def get_anime_by_id(anime_id: int, session: Session) -> Anime:
+    anime = session.scalar(select(Anime).where(Anime.shikimori_id == anime_id))
+    if not anime:
+        raise HTTPException(404, 'Anime does not exists')
+
+
+    anime = AnimeRead(
+            id=anime.id,
+            shikimori_id=anime.shikimori_id,
+            name=anime.name,
+            russian=anime.russian,
+            url=anime.url,
+            kind=anime.kind,
+            score=anime.score,
+            status=anime.status,
+            episodes=anime.episodes,
+            episodes_aired=anime.episodes_aired,
+            aired_on=anime.aired_on,
+            released_on=anime.released_on,
+            poster=anime.poster,
+            info=anime.info,
+            season=anime.season,
+        )
+
+    return anime
+
+
+def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Anime:
     anime = session.get(Anime, anime_id)
     if not anime:
-        return None
+        raise HTTPException(404, 'Anime does not exists')
 
     for field, value in anime_data.dict(exclude_unset=True).items():
         setattr(anime, field, value)
@@ -163,35 +194,51 @@ def delete_anime(session: Session, anime_id: int) -> bool:
 
 # ------------------ Anime Info ------------------
 def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo:
-    anime_info = AnimeInfo(**info_data.dict(exclude={"genres"}))
-    session.add(anime_info)
-    session.commit()
-    session.refresh(anime_info)
+    # Проверяем, есть ли уже запись для этого anime_id
+    anime_info = session.exec(select(AnimeInfo).where(AnimeInfo.anime_id == info_data.anime_id)).first()
 
+    if not anime_info:
+        anime_info = AnimeInfo(**info_data.dict(exclude={"genres"}))
+        session.add(anime_info)
+        session.commit()
+        session.refresh(anime_info)
+
+    # Обрабатываем жанры
     if info_data.genres:
         for g in info_data.genres:
+            # Проверяем, есть ли такой жанр в таблице Genre
             genre = session.exec(select(Genre).where(Genre.name == g.name)).first()
             if not genre:
                 genre = Genre(name=g.name)
                 session.add(genre)
                 session.commit()
                 session.refresh(genre)
-            link = AnimeGenreLink(anime_info_id=anime_info.id, genre_id=genre.id)
-            session.add(link)
+
+            # Проверяем, есть ли уже связь AnimeGenreLink
+            link_exists = session.exec(
+                select(AnimeGenreLink)
+                .where(AnimeGenreLink.anime_info_id == anime_info.id)
+                .where(AnimeGenreLink.genre_id == genre.id)
+            ).first()
+
+            if not link_exists:
+                link = AnimeGenreLink(anime_info_id=anime_info.id, genre_id=genre.id)
+                session.add(link)
+
         session.commit()
 
     return anime_info
 
 
-def read_anime_info(session: Session, info_id: int) -> AnimeInfo:
-    info = session.get(AnimeInfo, info_id)
+def read_anime_info(session: Session, anime_id: int) -> AnimeInfo:
+    info = session.scalar(
+        select(AnimeInfo)
+        .where(AnimeInfo.id == anime_id)
+    )
     if not info:
         raise HTTPException(404, "AnimeInfo not found")
     return info
 
-
-def get_anime_info_by_anime_id(session: Session, anime_id: int) -> Optional[AnimeInfo]:
-    return session.exec(select(AnimeInfo).where(AnimeInfo.anime_id == anime_id)).first()
 
 
 def update_anime_info(session: Session, info_id: int, info_data: AnimeInfoCreate) -> Optional[AnimeInfo]:
