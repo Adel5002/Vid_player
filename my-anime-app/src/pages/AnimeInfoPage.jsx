@@ -1,14 +1,32 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, forwardRef } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 
 // Swiper
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
-
-// Swiper стили
 import "swiper/css";
 import "swiper/css/navigation";
+
+// Icons
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const ArrowButton = forwardRef(({ side = "left" }, ref) => (
+  <button
+    ref={ref}
+    className={`absolute top-1/2 -translate-y-1/2 z-10 
+      bg-black/40 hover:bg-black/70 p-2 rounded-full transition-colors
+      ${side === "left" ? "left-2" : "right-2"}`}
+    aria-label={side === "left" ? "Previous" : "Next"}
+  >
+    {side === "left" ? (
+      <ChevronLeft className="w-6 h-6 text-white" />
+    ) : (
+      <ChevronRight className="w-6 h-6 text-white" />
+    )}
+  </button>
+));
+ArrowButton.displayName = "ArrowButton";
 
 const AnimeInfoPage = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
@@ -16,13 +34,21 @@ const AnimeInfoPage = () => {
   const [anime, setAnime] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // refs для трейлеров
+  const prevRefVideos = useRef(null);
+  const nextRefVideos = useRef(null);
+
+  // refs для скриншотов
+  const prevRefScreens = useRef(null);
+  const nextRefScreens = useRef(null);
+
   useEffect(() => {
     const fetchAnime = async () => {
       try {
-        const response = await axios.get(`${apiUrl}/anime/anime-watch/${id}`);
-        setAnime(response.data);
-      } catch (err) {
-        console.error(err);
+        const res = await axios.get(`${apiUrl}/anime/anime-watch/${id}`);
+        setAnime(res.data);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
@@ -66,90 +92,92 @@ const AnimeInfoPage = () => {
           </div>
         </div>
 
-        {/* Студии / жанры */}
-        <div className="mt-10 grid md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">Студии</h2>
-            {anime.info?.studios?.length > 0 ? (
-              <ul className="list-disc list-inside text-gray-300">
-                {anime.info.studios.map((s) => <li key={s.id}>{s.name}</li>)}
-              </ul>
-            ) : (
-              <p className="text-gray-500">Студии отсутствуют</p>
-            )}
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">Жанры</h2>
-            {anime.genres?.length > 0 ? (
-              <ul className="list-disc list-inside text-gray-300">
-                {anime.genres.map((g, i) => <li key={i}>{g}</li>)}
-              </ul>
-            ) : (
-              <p className="text-gray-500">Жанры не указаны</p>
-            )}
-          </div>
-        </div>
-
-        {/* Озвучка / субтитры */}
-        <div className="mt-10 grid md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">Озвучка</h2>
-            {anime.info?.fandubbers?.length > 0 ? (
-              <ul className="grid grid-cols-2 gap-1 text-gray-300 text-sm">
-                {anime.info.fandubbers.map((f, i) => <li key={i}>🎤 {f}</li>)}
-              </ul>
-            ) : (
-              <p className="text-gray-500">Нет информации об озвучке</p>
-            )}
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold mb-2">Субтитры</h2>
-            {anime.info?.fansubbers?.length > 0 ? (
-              <ul className="grid grid-cols-2 gap-1 text-gray-300 text-sm">
-                {anime.info.fansubbers.map((f, i) => <li key={i}>📝 {f}</li>)}
-              </ul>
-            ) : (
-              <p className="text-gray-500">Нет информации о субтитрах</p>
-            )}
-          </div>
-        </div>
-
-        {/* Видео трейлеры */}
-        <div className="mt-10">
-          <h2 className="text-2xl font-semibold mb-4">Трейлеры</h2>
+        {/* Трейлеры */}
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold mb-4">🎬 Трейлеры</h2>
           {anime.info?.videos?.length > 0 ? (
-            <Swiper spaceBetween={20} slidesPerView={3} navigation modules={[Navigation]}>
-              {anime.info.videos.map((v) => (
-                <SwiperSlide key={v.id}>
-                  <iframe
-                    src={v.playerUrl}
-                    title={v.name}
-                    className="w-full h-64 rounded-lg shadow-lg"
-                    allowFullScreen
-                  />
-                </SwiperSlide>
-              ))}
-            </Swiper>
+            <div className="relative">
+              <ArrowButton ref={prevRefVideos} side="left" />
+              <ArrowButton ref={nextRefVideos} side="right" />
+
+              <Swiper
+                modules={[Navigation]}
+                spaceBetween={20}
+                slidesPerView={1}
+                breakpoints={{
+                  640: { slidesPerView: 1 },
+                  768: { slidesPerView: 2 },
+                  1024: { slidesPerView: 3 },
+                }}
+                onBeforeInit={(swiper) => {
+                  swiper.params.navigation.prevEl = prevRefVideos.current;
+                  swiper.params.navigation.nextEl = nextRefVideos.current;
+                }}
+                onInit={(swiper) => {
+                  swiper.navigation.init();
+                  swiper.navigation.update();
+                }}
+                className="!pb-12"
+              >
+                {anime.info.videos.map((v) => (
+                  <SwiperSlide key={v.id}>
+                    <div className="overflow-hidden rounded-2xl shadow-xl group relative">
+                      <iframe
+                        src={v.playerUrl || v.player_url}
+                        title={v.name}
+                        className="w-full h-64 transition-transform duration-300 group-hover:scale-105"
+                        allowFullScreen
+                      />
+                      <div className="absolute bottom-0 left-0 w-full bg-black/60 text-sm px-3 py-2">
+                        {v.name}
+                      </div>
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
           ) : (
             <p className="text-gray-500">Нет трейлеров</p>
           )}
         </div>
 
         {/* Скриншоты */}
-        <div className="mt-10">
-          <h2 className="text-2xl font-semibold mb-4">Скриншоты</h2>
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold mb-4">🖼 Скриншоты</h2>
           {anime.info?.screenshots?.length > 0 ? (
-            <Swiper spaceBetween={10} slidesPerView={3} navigation modules={[Navigation]}>
-              {anime.info.screenshots.map((s, i) => (
-                <SwiperSlide key={i}>
-                  <img
-                    src={s.originalUrl || s.preview}
-                    alt={`screenshot-${i}`}
-                    className="rounded-lg shadow-md w-full h-48 object-cover"
-                  />
-                </SwiperSlide>
-              ))}
-            </Swiper>
+            <div className="relative">
+              <ArrowButton ref={prevRefScreens} side="left" />
+              <ArrowButton ref={nextRefScreens} side="right" />
+
+              <Swiper
+                modules={[Navigation]}
+                spaceBetween={15}
+                slidesPerView={1.2}
+                breakpoints={{
+                  640: { slidesPerView: 2 },
+                  1024: { slidesPerView: 4 },
+                }}
+                onBeforeInit={(swiper) => {
+                  swiper.params.navigation.prevEl = prevRefScreens.current;
+                  swiper.params.navigation.nextEl = nextRefScreens.current;
+                }}
+                onInit={(swiper) => {
+                  swiper.navigation.init();
+                  swiper.navigation.update();
+                }}
+                className="!pb-12"
+              >
+                {anime.info.screenshots.map((s, i) => (
+                  <SwiperSlide key={i}>
+                    <img
+                      src={s.originalUrl || s.preview}
+                      alt={`screenshot-${i}`}
+                      className="rounded-xl shadow-lg w-full h-52 object-cover transition-transform duration-300 hover:scale-105"
+                    />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
           ) : (
             <p className="text-gray-500">Нет скриншотов</p>
           )}

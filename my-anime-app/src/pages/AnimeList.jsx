@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 
 const AnimeListPage = () => {
-  const apiUrl = import.meta.env.VITE_API_URL
+  const apiUrl = import.meta.env.VITE_API_URL;
   const [animeList, setAnimeList] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [dbNotReady, setDbNotReady] = useState(false);
 
   const observer = useRef();
 
@@ -32,7 +33,15 @@ const AnimeListPage = () => {
         const response = await axios.get(
           `${apiUrl}/anime/get-all-anime?page=${page}&limit=20`
         );
-        const newAnime = response.data.results;
+
+        // если БД ещё не готова
+        if (response.data?.status) {
+          setDbNotReady(true);
+          setHasMore(false);
+          return;
+        }
+
+        const newAnime = response.data;
         setAnimeList((prev) => [...prev, ...newAnime]);
         setHasMore(newAnime.length > 0);
       } catch (err) {
@@ -64,14 +73,22 @@ const AnimeListPage = () => {
   return (
     <div className="container mx-auto px-4 py-8 space-y-12">
 
-      {groupedByStatus.map((group) => (
+      {dbNotReady && (
+        <p className="text-center text-yellow-600 font-semibold">
+          ⏳ База данных наполняется, попробуйте позже...
+        </p>
+      )}
+
+      {!dbNotReady && groupedByStatus.map((group) => (
         <section key={group.status} className="space-y-4">
           <h2 className={`text-2xl font-bold mb-4 ${getStatusColor(group.status)}`}>
             {group.status.toUpperCase()}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {group.list.map((anime, index) => {
-              const isLast = group.list.length === index + 1 && group.status === groupedByStatus[groupedByStatus.length-1].status;
+              const isLast =
+                group.list.length === index + 1 &&
+                group.status === groupedByStatus[groupedByStatus.length - 1].status;
               return (
                 <div key={anime.id} ref={isLast ? lastAnimeRef : null}>
                   <AnimeCard anime={anime} height="h-64" />
@@ -86,7 +103,7 @@ const AnimeListPage = () => {
         <p className="text-center mt-6 text-gray-500 animate-pulse">Loading...</p>
       )}
 
-      {!hasMore && !loading && (
+      {!hasMore && !loading && !dbNotReady && (
         <p className="text-center mt-6 text-gray-400">🎉 No more anime to load</p>
       )}
     </div>

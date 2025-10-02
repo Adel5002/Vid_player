@@ -38,38 +38,38 @@ class AnimeGenreLink(SQLModel, table=True):
 
 class Genre(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
+    name: Optional[str] = None
 
     info: List["AnimeInfo"] = Relationship(back_populates="genres", link_model=AnimeGenreLink)
 
 
 class GenreCreate(SQLModel):
-    name: str
+    name: Optional[str] = None
 
 
 class GenreRead(SQLModel):
     id: Optional[int]
-    name: Optional[str]
+    name: Optional[str] = None
 
 
 # --- Anime ---
 class Anime(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     shikimori_id: Optional[int] = Field(default=None, unique=True)
-    name: str
+    name: Optional[str] = None
     russian: Optional[str] = None
-    url: str
+    url: Optional[str] = None
     kind: Optional[str] = None
     score: Optional[str] = None
     status: Optional[str] = None
-    episodes: int = 0
-    episodes_aired: int = 0
+    episodes: Optional[int] = 0
+    episodes_aired: Optional[int] = 0
     aired_on: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     released_on: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     season: Optional[str] = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
     poster: Optional["AnimePoster"] = Relationship(
         back_populates="anime",
@@ -84,37 +84,43 @@ class Anime(SQLModel, table=True):
 
 class AnimeCreate(SQLModel):
     shikimori_id: Optional[int] = None
-    name: str
+    name: Optional[str] = None
     russian: Optional[str] = None
-    url: str
+    url: Optional[str] = None
     kind: Optional[str] = None
     score: Optional[str] = None
     status: Optional[str] = None
-    episodes: int = 0
-    episodes_aired: int = 0
+    episodes: Optional[int] = 0
+    episodes_aired: Optional[int] = 0
     aired_on: Optional[dict] = None
     released_on: Optional[dict] = None
     poster: Optional["AnimePosterCreate"] = None
     info: Optional["AnimeInfoCreate"] = None
     season: Optional[str] = None
 
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
 
 class AnimeRead(SQLModel):
-    id: int
+    id: Optional[int] = None
     shikimori_id: Optional[int] = None
-    name: str
+    name: Optional[str] = None
     russian: Optional[str] = None
-    url: str
+    url: Optional[str] = None
     kind: Optional[str] = None
     score: Optional[str] = None
     status: Optional[str] = None
-    episodes: int
-    episodes_aired: int
+    episodes: Optional[int] = 0
+    episodes_aired: Optional[int] = 0
     aired_on: Optional[dict] = None
     released_on: Optional[dict] = None
     poster: Optional["AnimePosterRead"] = None
     info: Optional["AnimeInfoRead"] = None
     season: Optional[str] = None
+
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 # --- JSON Helper ---
@@ -149,24 +155,14 @@ class AnimeInfo(SQLModel, table=True):
     description: Optional[str] = None
     description_html: Optional[str] = None
     description_source: Optional[str] = None
-    franchise: Optional[str] = None
-    favoured: Optional[bool] = False
-    anons: Optional[bool] = False
-    ongoing: Optional[bool] = False
-    thread_id: Optional[int] = None
-    topic_id: Optional[int] = None
-    myanimelist_id: Optional[int] = None
-    rates_scores_stats: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
-    rates_statuses_stats: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
-    next_episode_at: Optional[datetime] = None
+    next_episode_at: Optional[str] = None
     fansubbers: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     fandubbers: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     licensors: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     studios: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     videos: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     screenshots: Optional[List] = Field(default=None, sa_column=Column(JSON))
-    user_rate: Optional[float] = None
-    isCensored: Optional[bool] = False
+    is_censored: Optional[bool] = False
 
 
     anime: Optional["Anime"] = Relationship(back_populates="info", sa_relationship_kwargs={"uselist": False})
@@ -185,23 +181,13 @@ class AnimeInfoCreate(SQLModel):
     description: Optional[str] = None
     description_html: Optional[str] = None
     description_source: Optional[str] = None
-    franchise: Optional[str] = None
-    favoured: Optional[bool] = False
-    anons: Optional[bool] = False
-    ongoing: Optional[bool] = False
-    thread_id: Optional[int] = None
-    topic_id: Optional[int] = None
-    myanimelist_id: Optional[int] = None
-    rates_scores_stats: Optional[List] = None
-    rates_statuses_stats: Optional[List] = None
-    next_episode_at: Optional[datetime] = None
+    next_episode_at: Optional[str] = None
     fansubbers: Optional[List] = None
     fandubbers: Optional[List] = None
     licensors: Optional[List] = None
     studios: Optional[List] = None
     videos: Optional[List] = None
     screenshots: Optional[List] = None
-    user_rate: Optional[float] = None
     genres: Optional[List["GenreCreate"]] = None
 
 
@@ -218,23 +204,13 @@ class AnimeInfoRead(SQLModel):
     description: Optional[str] = None
     description_html: Optional[str] = None
     description_source: Optional[str] = None
-    franchise: Optional[str] = None
-    favoured: Optional[bool] = False
-    anons: Optional[bool] = False
-    ongoing: Optional[bool] = False
-    thread_id: Optional[int] = None
-    topic_id: Optional[int] = None
-    myanimelist_id: Optional[int] = None
-    rates_scores_stats: Optional[List] = None
-    rates_statuses_stats: Optional[List] = None
-    next_episode_at: Optional[datetime] = None
+    next_episode_at: Optional[str] = None
     fansubbers: Optional[List] = None
     fandubbers: Optional[List] = None
     licensors: Optional[List] = None
     studios: Optional[List] = None
     videos: Optional[List] = None
     screenshots: Optional[List] = None
-    user_rate: Optional[float] = None
 
     genres: Optional[List["GenreRead"]] = None
 

@@ -13,13 +13,6 @@ services:
      image: redislabs/redismod
      ports:
        - '6379:6379'
-   dramatiq:
-     build: .
-     command: dramatiq endpoints.anime --processes 1 --threads 3
-     depends_on:
-       - redis
-     volumes:
-       - .:/code
    web:
      build: .
      command: ["uvicorn", "main:app", "--host", "0.0.0.0",]
@@ -30,7 +23,15 @@ services:
      depends_on:
        - redis
        - db
-
+   dramatiq:
+     build: .
+     command: dramatiq dramatiq_actors.db_fill_actor --processes 1 --threads 1
+     depends_on:
+       - db
+       - web
+       - redis
+     volumes:
+       - .:/code
 
 volumes:
   db:

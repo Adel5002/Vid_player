@@ -11,7 +11,7 @@ def validate_anime_dict(item: dict) -> Anime:
         score=str(item.get("score")),
         status=item.get("status"),
         episodes=item.get("episodes", 0),
-        episodes_aired=item.get("episodes_aired", 0),
+        episodes_aired=item.get("episodesAired", 0),
         aired_on=item.get("airedOn"),
         released_on=item.get("releasedOn"),
         season=item.get("season"),

@@ -1,21 +1,19 @@
 import json
 import logging
 
-import redis.asyncio as redis
 from dotenv import load_dotenv
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
 
 from db.crud import (
-    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_id
+    get_anime_bulk, get_all_possible_anime, get_anime_by_id
 )
 from db.db import get_session
 from db.models import AnimeRead, Anime
+from redis_cache import cache
 
-from dramatiq_actors.db_fill_actor import add_anime_to_db
-
-from utils.graphql_requests import get_anime_list, search_for_anime
+from utils.graphql_requests import search_for_anime
 from utils.validate_anime_dict import validate_anime_dict
 
 
@@ -33,9 +31,6 @@ SHIKIMORI_HEADERS = {
     "Accept": "application/json",
 }
 
-
-# ------------------ Redis Cache ------------------
-cache = redis.Redis(host="redis", port=6379, db=0)
 
 
 # ------------------ Routes ------------------
@@ -75,54 +70,26 @@ async def get_all_anime(
         limit: int = 50,
         session: Session = Depends(get_session)
 ):
-    cache_key = f"anime:{season}:{page}:{limit}"
-    cached = await cache.get(cache_key)
-    if cached:
-        print("⚡ Отдаю из кэша:", cache_key)
-        return json.loads(cached)
+    cache_key = f"anime"
+    cached = cache.get(cache_key)
 
-    # Получаем все аниме из базы
-    bulk_anime = get_anime_bulk(session)
     start, end = (page - 1) * limit, page * limit
 
-    anime_list: list[dict] = []
+    if cached:
+        print("⚡ Отдаю из кэша:", cache_key)
+        return json.loads(cached)[start:end]
 
-    # Если в БД мало данных → тянем с API
-    if len(bulk_anime) < page * limit:
-        safe_response = await get_anime_list(limit=limit, page=page)
+    db_is_ready = cache.get("DB_READY")
+    print(db_is_ready.decode("utf-8"))
 
-        async for key in cache.scan_iter("anime:*"):
-            await cache.delete(key)
+    if db_is_ready.decode("utf-8") != "true":
+        return {"status": "db is not ready yet, please wait..."}
 
-        if len(safe_response) < limit:
-            raise HTTPException(404, "Last page reached")
+    bulk_anime = get_anime_bulk(session)
+    print(bulk_anime)
+    cache.set('anime', json.dumps(bulk_anime))
+    return bulk_anime[start:end]
 
-        for item in safe_response:
-            # Проверяем, есть ли уже такое аниме
-            anime_in_db = get_anime_by_shikimori_id(session, item.get("id"))
-
-            if not anime_in_db:
-                # 🔹 Валидируем и добавляем в ответ пользователю
-                anime_info_data = validate_anime_dict(item)
-                anime_list.append(anime_info_data.model_dump())
-                # 🔹 Отправляем задачу на запись в БД (асинхронно)
-                add_anime_to_db.send_with_options(args=(item,))
-
-        # Добавляем то, что уже было в БД
-        anime_list = filter_and_sort_anime(bulk_anime + anime_list, season)
-
-    else:
-        # Если БД полная → используем только её
-        anime_list = filter_and_sort_anime(bulk_anime, season)
-
-    if len(anime_list) < page * limit:
-        raise HTTPException(404, "Either the pages haven't been added to the database yet,"
-                                 " or you need to update the cache.")
-
-    results = {"results": anime_list[start:end], "page": page, "limit": limit}
-
-    await cache.set(cache_key, json.dumps(results), ex=300)  # кэш на 5 минут
-    return results
 
 
 

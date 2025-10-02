@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -5,15 +6,17 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from db.db import init_db
+from dramatiq_actors.db_fill_actor import fill_db
 from endpoints.user import router as user_router
 from endpoints.anime import router as anime_router
+from redis_cache import cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     yield
-
+    cache.flushall()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -34,6 +37,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get('/fill-db/')
+async def fill_db_endpoint():
+    fill_db.send()
+    return {'status': 'ok'}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

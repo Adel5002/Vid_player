@@ -100,14 +100,28 @@ def get_anime_by_name(session: Session, name: str) -> Optional[Anime]:
 
 
 def get_anime_by_shikimori_id(session: Session, shikimori_id: int) -> Optional[Anime]:
-    return session.exec(select(Anime).where(Anime.shikimori_id == shikimori_id)).first()
+    return session.scalars(select(Anime).where(Anime.shikimori_id == shikimori_id)).first()
 
+
+from sqlalchemy import case, select, desc
+from sqlalchemy.orm import selectinload
+import datetime
+from typing import Sequence
 
 def get_anime_bulk(session: Session) -> Sequence[Anime]:
     current_year = str(datetime.date.today().year)
+
+    # порядок сортировки: ongoing → released → anons
+    status_order = case(
+        (Anime.status == "ongoing", 0),
+        (Anime.status == "released", 1),
+        (Anime.status == "anons", 2),
+        else_=3,
+    )
+
     anime = session.scalars(
         select(Anime)
-        .order_by(desc(Anime.score))
+        .order_by(status_order, desc(Anime.score))
         .options(
             selectinload(Anime.info),
             selectinload(Anime.poster)
@@ -117,7 +131,7 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
     result = []
     for item in anime:
         result.append(
-                AnimeRead(
+            AnimeRead(
                 id=item.id,
                 shikimori_id=item.shikimori_id,
                 name=item.name,
@@ -133,9 +147,14 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
                 poster=item.poster,
                 info=item.info,
                 season=item.season,
-            )
+                created_at=item.created_at,
+                updated_at=item.updated_at,
+            ).model_dump()
         )
+
     return result
+
+
 
 
 def get_anime_by_id(anime_id: int, session: Session) -> Anime:
@@ -180,7 +199,7 @@ def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> An
 
 
 def get_all_possible_anime(session: Session) -> Sequence[Anime]:
-    return session.exec(select(Anime)).all()
+    return session.scalars(select(Anime)).all()
 
 
 def delete_anime(session: Session, anime_id: int) -> bool:
@@ -195,7 +214,7 @@ def delete_anime(session: Session, anime_id: int) -> bool:
 # ------------------ Anime Info ------------------
 def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo:
     # Проверяем, есть ли уже запись для этого anime_id
-    anime_info = session.exec(select(AnimeInfo).where(AnimeInfo.anime_id == info_data.anime_id)).first()
+    anime_info = session.scalars(select(AnimeInfo).where(AnimeInfo.anime_id == info_data.anime_id)).first()
 
     if not anime_info:
         anime_info = AnimeInfo(**info_data.dict(exclude={"genres"}))
@@ -207,7 +226,7 @@ def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo
     if info_data.genres:
         for g in info_data.genres:
             # Проверяем, есть ли такой жанр в таблице Genre
-            genre = session.exec(select(Genre).where(Genre.name == g.name)).first()
+            genre = session.scalars(select(Genre).where(Genre.name == g.name)).first()
             if not genre:
                 genre = Genre(name=g.name)
                 session.add(genre)
@@ -215,7 +234,7 @@ def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo
                 session.refresh(genre)
 
             # Проверяем, есть ли уже связь AnimeGenreLink
-            link_exists = session.exec(
+            link_exists = session.scalars(
                 select(AnimeGenreLink)
                 .where(AnimeGenreLink.anime_info_id == anime_info.id)
                 .where(AnimeGenreLink.genre_id == genre.id)
