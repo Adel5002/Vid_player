@@ -2,8 +2,10 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import uvicorn
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from pytz import timezone
 
 from db.db import init_db
 from dramatiq_actors.db_fill_actor import fill_db
@@ -11,10 +13,17 @@ from endpoints.user import router as user_router
 from endpoints.anime import router as anime_router
 from redis_cache import cache
 
+scheduler = AsyncIOScheduler(timezone=timezone("Europe/Moscow"))
+async def update_db():
+    cache.delete('anime')
+    fill_db.send()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+
+    scheduler.add_job(update_db, "cron", hour=0, minute=0)
+    scheduler.start()
     yield
     cache.flushall()
 

@@ -126,5 +126,5 @@ async def search_for_anime(anime_id: str) -> dict:
         return result["animes"]
 
 if __name__ == "__main__":
-    data = asyncio.run(get_anime_list(page=1, limit=2))
+    data = asyncio.run(get_anime_list(page=1, limit=2, season=''))
     print(json.dumps(data, indent=4))

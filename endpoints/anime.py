@@ -57,12 +57,8 @@ def filter_and_sort_anime(anime_list: list[Anime], season: str = None) -> list[d
     return anime_list
 
 
-# TODO: Разнести первичное заполнение бд и обновление бд по разным разделам.
-# TODO: Пока бд заполняется ничего не сохранять в кэше как это происходит сейчас
-# TODO: Обновление бд будет выполнено с помощью cron раз в день
-# TODO: При получении новой записи полностью сбрасывать кэш и записывать его по новой
-# TODO: При записывании кэша возможно стоит сделать так чтобы сначала загрузить в переменную все необходимые данные а в кэш записать уже нарезанные по страницам данные
-
+# TODO: Придумать функционал обновления инфы об аниме если апи такого не предоставляет, а можно это сделать перебором
+# TODO: аниме из моей бд и поиском их в бд шикимори
 @router.get("/get-all-anime")
 async def get_all_anime(
         season: str = "",
@@ -80,13 +76,11 @@ async def get_all_anime(
         return json.loads(cached)[start:end]
 
     db_is_ready = cache.get("DB_READY")
-    print(db_is_ready.decode("utf-8"))
 
-    if db_is_ready.decode("utf-8") != "true":
+    if db_is_ready is None or db_is_ready.decode("utf-8") != "true":
         return {"status": "db is not ready yet, please wait..."}
 
     bulk_anime = get_anime_bulk(session)
-    print(bulk_anime)
     cache.set('anime', json.dumps(bulk_anime))
     return bulk_anime[start:end]
 

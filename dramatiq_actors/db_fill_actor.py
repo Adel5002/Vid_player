@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 
 import dramatiq
 
@@ -14,12 +15,13 @@ from utils.graphql_requests import get_anime_list
 
 
 @dramatiq.actor
-async def fill_db():
+async def fill_db(season: str = f'{date.today().year}'):
+    print("Пошла возня...")
     cache.set("DB_READY", "false")
     limit = 50
 
     for page in range(1, 30000):
-        safe_response = await get_anime_list(page=page, limit=limit)
+        safe_response = await get_anime_list(page=page, limit=limit, season=season)
 
         # Сделать остановку по окончанию работы этого актера
         if not 'animes' in safe_response:
