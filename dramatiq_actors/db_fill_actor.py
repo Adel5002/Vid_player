@@ -37,13 +37,17 @@ async def fill_db(season: str = f'{date.today().year}'):
             add_anime_to_db.send_with_options(args=(anime,))
 
 
-
+async def add_anime_to_queue(animes: list[dict]) -> None:
+    print("Таска взята в работу ✅")
+    for anime in animes:
+        add_anime_to_db.send(anime)
+        await asyncio.sleep(1)
 
 @dramatiq.actor(max_retries=5, min_backoff=1000, max_backoff=30000)
 async def add_anime_to_db(anime_data: dict) -> None:
     """Актёр: добавляет 1 аниме в БД."""
     with Session(engine) as session:
-        anime_in_db = get_anime_by_shikimori_id(session, anime_data.get("id"))
+        anime_in_db = get_anime_by_shikimori_id(anime_data.get("id"), session)
 
         if anime_in_db:
             return  # Уже есть в БД

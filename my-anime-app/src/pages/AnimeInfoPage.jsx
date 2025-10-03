@@ -15,14 +15,15 @@ const ArrowButton = forwardRef(({ side = "left" }, ref) => (
   <button
     ref={ref}
     className={`absolute top-1/2 -translate-y-1/2 z-10 
-      bg-black/40 hover:bg-black/70 p-2 rounded-full transition-colors
-      ${side === "left" ? "left-2" : "right-2"}`}
+      bg-gradient-to-r from-purple-600 to-pink-500 opacity-80 hover:opacity-100
+      p-3 rounded-full shadow-xl transition duration-300
+      ${side === "left" ? "left-3" : "right-3"}`}
     aria-label={side === "left" ? "Previous" : "Next"}
   >
     {side === "left" ? (
-      <ChevronLeft className="w-6 h-6 text-white" />
+      <ChevronLeft className="w-6 h-6 text-white drop-shadow" />
     ) : (
-      <ChevronRight className="w-6 h-6 text-white" />
+      <ChevronRight className="w-6 h-6 text-white drop-shadow" />
     )}
   </button>
 ));
@@ -34,18 +35,15 @@ const AnimeInfoPage = () => {
   const [anime, setAnime] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // refs для трейлеров
   const prevRefVideos = useRef(null);
   const nextRefVideos = useRef(null);
-
-  // refs для скриншотов
   const prevRefScreens = useRef(null);
   const nextRefScreens = useRef(null);
 
   useEffect(() => {
     const fetchAnime = async () => {
       try {
-        const res = await axios.get(`${apiUrl}/anime/anime-watch/${id}`);
+        const res = await axios.get(`${apiUrl}/anime/watch-anime/${id}`);
         setAnime(res.data);
       } catch (e) {
         console.error(e);
@@ -56,32 +54,44 @@ const AnimeInfoPage = () => {
     fetchAnime();
   }, [id]);
 
-  if (loading) return <p className="text-center text-gray-400">Loading...</p>;
-  if (!anime) return <p className="text-center text-red-500">Anime not found</p>;
+  if (loading) return <p className="text-center text-gray-400">⏳ Loading...</p>;
+  if (!anime) return <p className="text-center text-red-500">❌ Anime not found</p>;
 
   return (
-    <div className="bg-[#0a0f1c] min-h-screen text-white">
-      <div className="container mx-auto px-6 py-10">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0f1c] via-[#0f0f1f] to-black text-white">
+      <div className="container mx-auto px-6 py-12 space-y-16">
         {/* Верхний блок */}
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex flex-col md:flex-row gap-8 bg-white/5 rounded-2xl p-6 shadow-2xl backdrop-blur-lg">
           <img
             src={anime.poster?.mainUrl || anime.poster?.originalUrl || "/placeholder.jpg"}
             alt={anime.russian || anime.name || "Anime Poster"}
-            className="w-72 h-auto rounded-xl shadow-lg object-cover"
+            className="w-72 h-auto rounded-2xl shadow-2xl object-cover transform hover:scale-105 transition duration-500"
           />
-          <div className="flex-1 space-y-4">
-            <h1 className="text-4xl font-bold">{anime.russian || "Без названия"}</h1>
-            <p className="text-gray-400 italic">{anime.name || "Нет английского названия"}</p>
-            <div className="flex gap-4 text-sm flex-wrap">
-              <span className="px-3 py-1 rounded bg-green-700">{anime.status || "Статус неизвестен"}</span>
-              <span className="px-3 py-1 rounded bg-blue-700">⭐ {anime.score || "N/A"}</span>
-              <span className="px-3 py-1 rounded bg-gray-700">{anime.kind || "Неизвестный тип"}</span>
-              <span className="px-3 py-1 rounded bg-purple-700">
+          <div className="flex-1 space-y-6">
+            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent drop-shadow-lg">
+              {anime.russian || "Без названия"}
+            </h1>
+            <p className="text-gray-400 italic text-lg">{anime.name || "Нет английского названия"}</p>
+
+            {/* Теги */}
+            <div className="flex gap-3 text-sm flex-wrap">
+              <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-green-500 to-emerald-700 shadow">
+                {anime.status || "Статус неизвестен"}
+              </span>
+              <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 shadow">
+                ⭐ {anime.score || "N/A"}
+              </span>
+              <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 shadow">
+                {anime.kind || "Неизвестный тип"}
+              </span>
+              <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-700 shadow">
                 {anime.info?.duration ? `${anime.info.duration} мин/эп` : "Длительность неизвестна"}
               </span>
             </div>
+
+            {/* Описание */}
             <div
-              className="prose prose-invert max-w-none bg-black/40 p-4 rounded-lg"
+              className="prose prose-invert max-w-none bg-black/40 p-5 rounded-2xl border border-white/10 shadow-lg leading-relaxed text-gray-200"
               dangerouslySetInnerHTML={{
                 __html:
                   anime.info?.description_html?.replace(/<[^>]+>/g, "").trim()
@@ -93,16 +103,17 @@ const AnimeInfoPage = () => {
         </div>
 
         {/* Трейлеры */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-semibold mb-4">🎬 Трейлеры</h2>
+        <div>
+          <h2 className="text-3xl font-bold mb-6 border-l-4 border-pink-500 pl-3">
+            🎬 Трейлеры
+          </h2>
           {anime.info?.videos?.length > 0 ? (
             <div className="relative">
               <ArrowButton ref={prevRefVideos} side="left" />
               <ArrowButton ref={nextRefVideos} side="right" />
-
               <Swiper
                 modules={[Navigation]}
-                spaceBetween={20}
+                spaceBetween={25}
                 slidesPerView={1}
                 breakpoints={{
                   640: { slidesPerView: 1 },
@@ -121,14 +132,14 @@ const AnimeInfoPage = () => {
               >
                 {anime.info.videos.map((v) => (
                   <SwiperSlide key={v.id}>
-                    <div className="overflow-hidden rounded-2xl shadow-xl group relative">
+                    <div className="overflow-hidden rounded-2xl shadow-xl group relative bg-black/40">
                       <iframe
                         src={v.playerUrl || v.player_url}
                         title={v.name}
-                        className="w-full h-64 transition-transform duration-300 group-hover:scale-105"
+                        className="w-full h-64 transition-transform duration-500 group-hover:scale-105"
                         allowFullScreen
                       />
-                      <div className="absolute bottom-0 left-0 w-full bg-black/60 text-sm px-3 py-2">
+                      <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent px-3 py-2 text-sm text-gray-200">
                         {v.name}
                       </div>
                     </div>
@@ -137,21 +148,22 @@ const AnimeInfoPage = () => {
               </Swiper>
             </div>
           ) : (
-            <p className="text-gray-500">Нет трейлеров</p>
+            <p className="text-gray-500 italic">Нет трейлеров</p>
           )}
         </div>
 
         {/* Скриншоты */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-semibold mb-4">🖼 Скриншоты</h2>
+        <div>
+          <h2 className="text-3xl font-bold mb-6 border-l-4 border-purple-500 pl-3">
+            🖼 Скриншоты
+          </h2>
           {anime.info?.screenshots?.length > 0 ? (
             <div className="relative">
               <ArrowButton ref={prevRefScreens} side="left" />
               <ArrowButton ref={nextRefScreens} side="right" />
-
               <Swiper
                 modules={[Navigation]}
-                spaceBetween={15}
+                spaceBetween={20}
                 slidesPerView={1.2}
                 breakpoints={{
                   640: { slidesPerView: 2 },
@@ -172,14 +184,14 @@ const AnimeInfoPage = () => {
                     <img
                       src={s.originalUrl || s.preview}
                       alt={`screenshot-${i}`}
-                      className="rounded-xl shadow-lg w-full h-52 object-cover transition-transform duration-300 hover:scale-105"
+                      className="rounded-2xl shadow-xl w-full h-56 object-cover transition-transform duration-500 hover:scale-105"
                     />
                   </SwiperSlide>
                 ))}
               </Swiper>
             </div>
           ) : (
-            <p className="text-gray-500">Нет скриншотов</p>
+            <p className="text-gray-500 italic">Нет скриншотов</p>
           )}
         </div>
       </div>

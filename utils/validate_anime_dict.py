@@ -2,6 +2,8 @@ from db.models import AnimeCreate, AnimeInfoCreate, AnimePosterCreate, Anime
 
 
 def validate_anime_dict(item: dict) -> Anime:
+    originalUrl = item.get("poster", {}).get("originalUrl")
+    mainUrl = item.get("poster", {}).get("mainUrl")
     anime = AnimeCreate(
         name=item.get("name"),
         shikimori_id=item.get("id"),
@@ -15,9 +17,11 @@ def validate_anime_dict(item: dict) -> Anime:
         aired_on=item.get("airedOn"),
         released_on=item.get("releasedOn"),
         season=item.get("season"),
+        created_at=item.get("createdAt"),
+        updated_at=item.get("updatedAt"),
         poster=AnimePosterCreate(
-            originalUrl=item.get("poster", {}).get("originalUrl"),
-            mainUrl=item.get("poster", {}).get("mainUrl"),
+            originalUrl=originalUrl,
+            mainUrl=mainUrl,
             local_image_link=None,
         ),
         info=AnimeInfoCreate(
@@ -29,6 +33,7 @@ def validate_anime_dict(item: dict) -> Anime:
             synonyms=item.get("synonyms"),
             description=item.get("description"),
             description_html=item.get("descriptionHtml"),
+            next_episode_at=item.get("nextEpisodeAt"),
             duration=item.get("duration"),
             screenshots=item.get("screenshots"),
             videos=item.get("videos"),
@@ -38,6 +43,7 @@ def validate_anime_dict(item: dict) -> Anime:
             licensors=item.get("licensors"),
             studios=item.get("studios"),
             genres=item.get("genres"),
+            is_censored=item.get("isCensored"),
         )
     )
 

@@ -74,11 +74,13 @@ class Anime(SQLModel, table=True):
     poster: Optional["AnimePoster"] = Relationship(
         back_populates="anime",
         sa_relationship_kwargs={"uselist": False},
+        cascade_delete=True
     )
 
     info: Optional["AnimeInfo"] = Relationship(
         back_populates="anime",
         sa_relationship_kwargs={"uselist": False},
+        cascade_delete=True
     )
 
 

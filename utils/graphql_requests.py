@@ -69,12 +69,12 @@ async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', 
         result = await session.execute(query, variable_values=variables)
         return result
 
-async def search_for_anime(anime_id: str) -> dict:
+async def search_for_anime(anime_id: str = "", anime_name: str = "", limit: int = 50) -> list[dict]:
     client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL")))
     query = gql(
         """
-       query getAnimeList ($ids: String!) {
-          animes(ids: $ids) {
+       query getAnimeList ($ids: String!, $anime_name: String!, $limit: Int!) {
+          animes(ids: $ids, search: $anime_name, limit:$limit) {
             id
             malId
             name
@@ -119,12 +119,12 @@ async def search_for_anime(anime_id: str) -> dict:
         """
     )
 
-    variables = {"ids": anime_id}
+    variables = {"ids": anime_id, "anime_name": anime_name, "limit": limit}
 
     async with client as session:
         result = await session.execute(query, variable_values=variables)
         return result["animes"]
 
 if __name__ == "__main__":
-    data = asyncio.run(get_anime_list(page=1, limit=2, season=''))
+    data = asyncio.run(search_for_anime(anime_name="gachi"))
     print(json.dumps(data, indent=4))

@@ -1,13 +1,18 @@
+import asyncio
 import json
 import logging
+from typing import Optional, Sequence
 
 from dotenv import load_dotenv
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
 
+from dramatiq_actors.db_fill_actor import add_anime_to_db, add_anime_to_queue
+
 from db.crud import (
-    get_anime_bulk, get_all_possible_anime, get_anime_by_id
+    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_name, create_anime,
+    create_anime_info, delete_anime
 )
 from db.db import get_session
 from db.models import AnimeRead, Anime
@@ -85,14 +90,28 @@ async def get_all_anime(
     return bulk_anime[start:end]
 
 
+@router.get('/get-anime-by-name/{name}')
+async def get_anime(name: str, session: Session = Depends(get_session)) -> Sequence[dict]:
+    from_my_db = get_anime_by_name(session, name)
+    if not from_my_db:
+        animes = await search_for_anime(anime_name=name)
+        await asyncio.create_task(add_anime_to_queue(animes))
+        animes = [validate_anime_dict(anime).model_dump() for anime in animes]
+        return animes
+
+    return from_my_db
 
 
-
-@router.get('/anime-watch/{anime_id}')
+@router.get('/watch-anime/{anime_id}')
 async def watch_anime(anime_id: int, session: Session = Depends(get_session)):
-    try:
-        anime_info = get_anime_by_id(anime_id, session)
-        return anime_info
-    except HTTPException:
-        get_anime = await search_for_anime(str(anime_id))
-        return validate_anime_dict(get_anime[0]).model_dump()
+    anime_info = get_anime_by_shikimori_id(anime_id, session)
+
+    if not anime_info:
+        anime = await search_for_anime(str(anime_id))
+        add_anime_to_db.send(anime[0])
+        return validate_anime_dict(anime[0]).model_dump()
+    return anime_info
+
+@router.delete("/delete-anime/{anime_id}")
+async def delete_anime_by_id(anime_id: int, session: Session = Depends(get_session)):
+    return delete_anime(session, anime_id)

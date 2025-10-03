@@ -1,8 +1,12 @@
 // src/api/anime.js
 import API from "./client";
+import axios from "axios";
 
-export async function fetchAnime(next = null) {
-  const url = next ? `/anime/get-all-anime?next_page=${next}` : `/anime/get-all-anime`;
-  const res = await API.get(url);
-  return res.data;
-}
+const apiUrl = import.meta.env.VITE_API_URL;
+
+
+export const fetchAllAnime = (page, limit = 20) =>
+  axios.get(`${apiUrl}/anime/get-all-anime?page=${page}&limit=${limit}`);
+
+export const fetchAnimeByName = (name) =>
+  axios.get(`${apiUrl}/anime/get-anime-by_name/${encodeURIComponent(name)}`); 

@@ -5,8 +5,9 @@ from fastapi import HTTPException
 from numpy.random.mtrand import Sequence
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select, desc
+from sqlmodel import Session, select, desc, col, or_
 
+from utils.graphql_requests import search_for_anime
 from .models import (
     User, UserCreate, UserUpdate,
     Anime, AnimeCreate, AnimePoster, AnimePosterCreate,
@@ -88,19 +89,57 @@ def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:
     return anime
 
 
-def read_anime(session: Session, anime_id: int) -> Anime:
+def read_anime(session: Session, anime_id: int) -> Optional[Anime]:
     anime = session.get(Anime, anime_id)
     if not anime:
         raise HTTPException(404, "Anime not found")
     return anime
 
 
-def get_anime_by_name(session: Session, name: str) -> Optional[Anime]:
-    return session.exec(select(Anime).where(Anime.name == name)).first()
+def get_anime_by_name(session: Session, name: str) -> Sequence[dict]:
+    animes = session.scalars(
+        select(Anime)
+        .filter(
+            or_(
+                col(Anime.name).icontains(name),
+                col(Anime.russian).icontains(name)
+            )
+        )
+        .options(
+            selectinload(Anime.info),
+            selectinload(Anime.poster),
+        )
+    ).all()
+
+    result = []
+    for item in animes:
+        result.append(
+            AnimeRead(
+                id=item.id,
+                shikimori_id=item.shikimori_id,
+                name=item.name,
+                russian=item.russian,
+                url=item.url,
+                kind=item.kind,
+                score=item.score,
+                status=item.status,
+                episodes=item.episodes,
+                episodes_aired=item.episodes_aired,
+                aired_on=item.aired_on,
+                released_on=item.released_on,
+                poster=item.poster,
+                info=item.info,
+                season=item.season,
+                created_at=item.created_at,
+                updated_at=item.updated_at,
+            ).model_dump()
+        )
+
+    return result
 
 
-def get_anime_by_shikimori_id(session: Session, shikimori_id: int) -> Optional[Anime]:
-    return session.scalars(select(Anime).where(Anime.shikimori_id == shikimori_id)).first()
+# def get_anime_by_shikimori_id(session: Session, shikimori_id: int) -> Optional[Anime]:
+#     return session.scalar(select(Anime).where(Anime.shikimori_id == shikimori_id))
 
 
 from sqlalchemy import case, select, desc
@@ -157,10 +196,10 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
 
 
 
-def get_anime_by_id(anime_id: int, session: Session) -> Anime:
-    anime = session.scalar(select(Anime).where(Anime.shikimori_id == anime_id))
+def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[Anime]:
+    anime = session.scalar(select(Anime).where(Anime.shikimori_id == shikimori_id))
     if not anime:
-        raise HTTPException(404, 'Anime does not exists')
+        return None
 
 
     anime = AnimeRead(
@@ -217,7 +256,7 @@ def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo
     anime_info = session.scalars(select(AnimeInfo).where(AnimeInfo.anime_id == info_data.anime_id)).first()
 
     if not anime_info:
-        anime_info = AnimeInfo(**info_data.dict(exclude={"genres"}))
+        anime_info = AnimeInfo(**info_data.model_dump(exclude={"genres"}))
         session.add(anime_info)
         session.commit()
         session.refresh(anime_info)

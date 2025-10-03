@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from pytz import timezone
 
-from db.db import init_db
+from db.db import init_db, drop_db
 from dramatiq_actors.db_fill_actor import fill_db
 from endpoints.user import router as user_router
 from endpoints.anime import router as anime_router
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(update_db, "cron", hour=0, minute=0)
     scheduler.start()
     yield
-    cache.flushall()
+    # cache.flushall()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -45,6 +45,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# TODO: Исправить ошибку - При сбрасывании бд круд отвечающий за глав страницу выдает ошибку из-за логики сортировки
+@app.get('/drop-db/')
+async def drop_db_endpoint():
+    drop_db()
+    return {'status': 'ok'}
+
 
 @app.get('/fill-db/')
 async def fill_db_endpoint():
