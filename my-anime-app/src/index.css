@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+/* 🔒 Убираем автофокусную подсветку у всех инпутов */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Если нужно — убираем синие бордеры/тени при фокусе на мобильных Safari/Chrome */
+input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}

@@ -3,7 +3,7 @@ from db.models import AnimeCreate, AnimeInfoCreate, AnimePosterCreate, Anime
 
 def validate_anime_dict(item: dict) -> Anime:
     originalUrl = item.get("poster", {}).get("originalUrl")
-    mainUrl = item.get("poster", {}).get("mainUrl")
+    mainUrl = item.get("poster", {}).get("main2xUrl")
     anime = AnimeCreate(
         name=item.get("name"),
         shikimori_id=item.get("id"),

@@ -39,7 +39,7 @@ async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', 
             url
             season
 
-            poster { id originalUrl mainUrl }
+            poster { id originalUrl main2xUrl }
 
             fansubbers
             fandubbers
@@ -95,7 +95,7 @@ async def search_for_anime(anime_id: str = "", anime_name: str = "", limit: int 
             url
             season
 
-            poster { id originalUrl mainUrl }
+            poster { id originalUrl main2xUrl }
 
             fansubbers
             fandubbers

@@ -1,18 +1,17 @@
 import asyncio
 import json
 import logging
-from typing import Optional, Sequence
+from typing import Sequence, Union
 
 from dotenv import load_dotenv
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from dramatiq_actors.db_fill_actor import add_anime_to_db, add_anime_to_queue
 
 from db.crud import (
-    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_name, create_anime,
-    create_anime_info, delete_anime
+    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_name, delete_anime
 )
 from db.db import get_session
 from db.models import AnimeRead, Anime
@@ -29,8 +28,6 @@ load_dotenv()
 router = APIRouter()
 
 # ------------------ Constants ------------------
-WORLDART_BASE = "http://www.world-art.ru"
-
 SHIKIMORI_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     "Accept": "application/json",
@@ -39,27 +36,9 @@ SHIKIMORI_HEADERS = {
 
 
 # ------------------ Routes ------------------
-@router.get("/get-all-possible-anime/", response_model=list[AnimeRead])
-async def get_full_anime_list(session: Session = Depends(get_session)):
+@router.get("/get-all-possible-anime/", response_model=Sequence[AnimeRead])
+async def get_full_anime_list(session: Session = Depends(get_session)) -> Sequence[Anime]:
     return get_all_possible_anime(session)
-
-
-
-def filter_and_sort_anime(anime_list: list[Anime], season: str = None) -> list[dict]:
-    anime_list = [i.model_dump() if not isinstance(i, dict) else i for i in anime_list]
-
-    # 1. фильтруем только те, где season содержит текущий год
-    if season:
-        anime_list = [a for a in anime_list if season in (a.get("season") or "")]
-
-    # 2. сортируем по score по убыванию
-    anime_list = sorted(anime_list, key=lambda x: float(x.get("score") or 0), reverse=True)
-
-    # 3. сортируем по статусу: ongoing -> released -> anons
-    status_order = {"ongoing": 0, "released": 1, "anons": 2}
-    anime_list.sort(key=lambda x: status_order.get(x.get("status"), 99))
-
-    return anime_list
 
 
 # TODO: Придумать функционал обновления инфы об аниме если апи такого не предоставляет, а можно это сделать перебором
@@ -70,7 +49,7 @@ async def get_all_anime(
         page: int = 1,
         limit: int = 50,
         session: Session = Depends(get_session)
-):
+) -> Union[Sequence[dict], dict[str, str]]:
     cache_key = f"anime"
     cached = cache.get(cache_key)
 
@@ -95,7 +74,8 @@ async def get_anime(name: str, session: Session = Depends(get_session)) -> Seque
     from_my_db = get_anime_by_name(session, name)
     if not from_my_db:
         animes = await search_for_anime(anime_name=name)
-        await asyncio.create_task(add_anime_to_queue(animes))
+
+        add_anime_to_queue.send(animes)
         animes = [validate_anime_dict(anime).model_dump() for anime in animes]
         return animes
 
@@ -103,7 +83,7 @@ async def get_anime(name: str, session: Session = Depends(get_session)) -> Seque
 
 
 @router.get('/watch-anime/{anime_id}')
-async def watch_anime(anime_id: int, session: Session = Depends(get_session)):
+async def watch_anime(anime_id: int, session: Session = Depends(get_session)) -> dict:
     anime_info = get_anime_by_shikimori_id(anime_id, session)
 
     if not anime_info:

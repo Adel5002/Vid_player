@@ -94,7 +94,7 @@ const AnimeInfoPage = () => {
               className="prose prose-invert max-w-none bg-black/40 p-5 rounded-2xl border border-white/10 shadow-lg leading-relaxed text-gray-200"
               dangerouslySetInnerHTML={{
                 __html:
-                  anime.info?.description_html?.replace(/<[^>]+>/g, "").trim()
+                  anime.info?.description?.replace(/<[^>]+>/g, "").trim()
                     ? anime.info.description_html
                     : "<p>Описание отсутствует</p>",
               }}

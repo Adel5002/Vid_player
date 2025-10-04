@@ -23,7 +23,6 @@ async def fill_db(season: str = f'{date.today().year}'):
     for page in range(1, 30000):
         safe_response = await get_anime_list(page=page, limit=limit, season=season)
 
-        # Сделать остановку по окончанию работы этого актера
         if not 'animes' in safe_response:
             print('ANIMESSS', safe_response)
 
@@ -36,9 +35,10 @@ async def fill_db(season: str = f'{date.today().year}'):
         for anime in safe_response.get('animes'):
             add_anime_to_db.send_with_options(args=(anime,))
 
-
+@dramatiq.actor
 async def add_anime_to_queue(animes: list[dict]) -> None:
     print("Таска взята в работу ✅")
+    cache.delete('anime')
     for anime in animes:
         add_anime_to_db.send(anime)
         await asyncio.sleep(1)
@@ -53,7 +53,7 @@ async def add_anime_to_db(anime_data: dict) -> None:
             return  # Уже есть в БД
 
         originalUrl = anime_data.get("poster", {}).get("originalUrl")
-        mainUrl = anime_data.get("poster", {}).get("mainUrl")
+        mainUrl = anime_data.get("poster", {}).get("main2xUrl")
 
         anime = AnimeCreate(
             name=anime_data.get("name"),

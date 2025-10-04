@@ -50,6 +50,8 @@ app.add_middleware(
 @app.get('/drop-db/')
 async def drop_db_endpoint():
     drop_db()
+    init_db()
+    cache.flushall()
     return {'status': 'ok'}
 
 

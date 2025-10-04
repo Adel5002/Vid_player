@@ -55,13 +55,13 @@ def update_user(session: Session, user_id: int, user_data: UserUpdate) -> Option
     return user
 
 
-def delete_user(session: Session, user_id: int) -> bool:
+def delete_user(session: Session, user_id: int) -> dict[str, str]:
     user = session.get(User, user_id)
     if not user:
-        return False
+        return {'success': 'fail'}
     session.delete(user)
     session.commit()
-    return True
+    return {'success': 'ok'}
 
 
 # ------------------ Anime ------------------
@@ -148,6 +148,7 @@ import datetime
 from typing import Sequence
 
 def get_anime_bulk(session: Session) -> Sequence[Anime]:
+    # Добавить сортировку по сезону
     current_year = str(datetime.date.today().year)
 
     # порядок сортировки: ongoing → released → anons
@@ -160,6 +161,7 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
 
     anime = session.scalars(
         select(Anime)
+        .where(col(Anime.season).contains(current_year))
         .order_by(status_order, desc(Anime.score))
         .options(
             selectinload(Anime.info),
@@ -196,11 +198,10 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
 
 
 
-def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[Anime]:
+def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[dict]:
     anime = session.scalar(select(Anime).where(Anime.shikimori_id == shikimori_id))
     if not anime:
         return None
-
 
     anime = AnimeRead(
             id=anime.id,
@@ -218,7 +219,9 @@ def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[A
             poster=anime.poster,
             info=anime.info,
             season=anime.season,
-        )
+            created_at=anime.created_at,
+            updated_at=anime.updated_at,
+        ).model_dump()
 
     return anime
 
@@ -241,13 +244,13 @@ def get_all_possible_anime(session: Session) -> Sequence[Anime]:
     return session.scalars(select(Anime)).all()
 
 
-def delete_anime(session: Session, anime_id: int) -> bool:
+def delete_anime(session: Session, anime_id: int) -> dict[str, str]:
     anime = session.get(Anime, anime_id)
     if not anime:
-        return False
+        return {'success': 'fail'}
     session.delete(anime)
     session.commit()
-    return True
+    return {'success': 'ok'}
 
 
 # ------------------ Anime Info ------------------
@@ -334,21 +337,26 @@ def update_anime_info(session: Session, info_id: int, info_data: AnimeInfoCreate
     return info
 
 
-def delete_anime_info(session: Session, info_id: int) -> bool:
+def delete_anime_info(session: Session, info_id: int) -> dict[str, str]:
     info = session.get(AnimeInfo, info_id)
     if not info:
-        return False
+        return {'success': 'fail'}
     session.delete(info)
     session.commit()
-    return True
+    return {'success': 'ok'}
 
 
-def get_all_anime_info(session: Session) -> List[AnimeInfo]:
-    return session.exec(select(AnimeInfo)).all()
+def get_all_anime_info(session: Session) -> Sequence[AnimeInfo]:
+    return session.scalars(select(AnimeInfo)).all()
 
 
 # ------------------ Genre ------------------
-def create_genre(session: Session, genre_data: GenreCreate) -> Genre:
+def create_genre(session: Session, genre_data: GenreCreate) -> Optional[Genre]:
+    genre_exists = session.scalar(select(Genre).where(Genre.name == genre_data.name))
+
+    if genre_exists:
+        return None
+
     genre = Genre(name=genre_data.name)
     session.add(genre)
     session.commit()
