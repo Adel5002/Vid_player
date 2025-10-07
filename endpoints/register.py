@@ -82,6 +82,11 @@ def get_new_refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
+    elif not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User is not verified yet",
+        )
 
     payload = {"sub": user.username}
 
@@ -139,31 +144,46 @@ async def register_user(user_data: UserCreate, session: Session = Depends(get_se
 
     return JSONResponse({"message": "User created. Check your email for verification."})
 
+from fastapi.responses import RedirectResponse
+
+FRONTEND_URL = "http://localhost:5173"
+
 @router.get("/verify-email")
-async def verify_email(token: str, session: Session = Depends(get_session)) -> JSONResponse:
+async def verify_email(token: str, session: Session = Depends(get_session)):
     try:
         payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
-
+        if not email:
+            raise ValueError("No subject in token")
+    except (jwt.PyJWTError, ValueError):
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/verify-email?status=error&reason=invalid_token",
+            status_code=302
+        )
 
     user = session.scalar(select(User).where(User.email == email))
-
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/verify-email?status=error&reason=user_not_found",
+            status_code=302
+        )
 
     cached_email_token = cache.get(f"email_token:{user.username}")
-
     if not cached_email_token:
-        raise HTTPException(status_code=400, detail="Invalid, expired or used verification link")
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/verify-email?status=error&reason=expired_or_used",
+            status_code=302
+        )
 
-
+    # Всё ок — подтверждаем почту
     user.is_verified = True
     session.add(user)
     session.commit()
+    cache.delete(f"email_token:{user.username}")
 
-    cache.delete(cached_email_token)
+    return RedirectResponse(
+        url=f"{FRONTEND_URL}/verify-email?status=success",
+        status_code=302
+    )
 
-    return JSONResponse({"message": "Email verified successfully"})
 
