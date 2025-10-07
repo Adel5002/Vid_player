@@ -14,7 +14,7 @@ from redis_cache import cache
 from utils.graphql_requests import get_anime_list
 
 
-@dramatiq.actor
+@dramatiq.actor(queue_name="heavy_tasks")
 async def fill_db(season: str = f'{date.today().year}'):
     print("Пошла возня...")
     cache.set("DB_READY", "false")
@@ -35,7 +35,7 @@ async def fill_db(season: str = f'{date.today().year}'):
         for anime in safe_response.get('animes'):
             add_anime_to_db.send_with_options(args=(anime,))
 
-@dramatiq.actor
+@dramatiq.actor(queue_name="heavy_tasks")
 async def add_anime_to_queue(animes: list[dict]) -> None:
     print("Таска взята в работу ✅")
     cache.delete('anime')
@@ -43,7 +43,7 @@ async def add_anime_to_queue(animes: list[dict]) -> None:
         add_anime_to_db.send(anime)
         await asyncio.sleep(1)
 
-@dramatiq.actor(max_retries=5, min_backoff=1000, max_backoff=30000)
+@dramatiq.actor(max_retries=5, min_backoff=1000, max_backoff=30000, queue_name="heavy_tasks")
 async def add_anime_to_db(anime_data: dict) -> None:
     """Актёр: добавляет 1 аниме в БД."""
     with Session(engine) as session:

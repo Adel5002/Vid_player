@@ -1,13 +1,10 @@
-import datetime
-from typing import Optional, List
-
+from typing import Optional
 from fastapi import HTTPException
 from numpy.random.mtrand import Sequence
-from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, desc, col, or_
 
-from utils.graphql_requests import search_for_anime
+from authorization.jwt_auth import get_password_hash
 from .models import (
     User, UserCreate, UserUpdate,
     Anime, AnimeCreate, AnimePoster, AnimePosterCreate,
@@ -18,10 +15,11 @@ from .models import (
 
 # ------------------ User ------------------
 def create_user(session: Session, user_data: UserCreate) -> User:
+    password = get_password_hash(user_data.password)
     user = User(
         username=user_data.username,
         email=user_data.email,
-        hashed_password=user_data.password  # TODO: хэшировать пароль
+        hashed_password=password
     )
     session.add(user)
     session.commit()
@@ -34,18 +32,42 @@ def get_user(session: Session, user_id: int) -> Optional[User]:
 
 
 def get_user_by_username(session: Session, username: str) -> Optional[User]:
-    return session.exec(select(User).where(User.username == username)).first()
+    return session.scalar(select(User).where(User.username == username))
 
 
-def update_user(session: Session, user_id: int, user_data: UserUpdate) -> Optional[User]:
+def update_user_by_id(session: Session, user_id: int, user_data: UserUpdate) -> Optional[User]:
     user = session.get(User, user_id)
     if not user:
         return None
 
-    update_data = user_data.dict(exclude_unset=True)
+    password = get_password_hash(user_data.password)
+    update_data = user_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         if key == "password":
-            setattr(user, "hashed_password", value)  # TODO: хэшировать пароль
+            setattr(user, "password", password)
+        else:
+            setattr(user, key, value)
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+def update_user_by_username(session: Session, username: str, user_data: UserUpdate) -> Optional[User]:
+    user = session.scalar(select(User).where(User.username == username))
+    if not user:
+        return None
+
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if user_data.password:
+        password = get_password_hash(user_data.password)
+    else:
+        password = None
+
+    for key, value in update_data.items():
+        if key == "password":
+            setattr(user, "password", password)
         else:
             setattr(user, key, value)
 

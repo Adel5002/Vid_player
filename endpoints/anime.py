@@ -65,7 +65,7 @@ async def get_all_anime(
         return {"status": "db is not ready yet, please wait..."}
 
     bulk_anime = get_anime_bulk(session)
-    cache.set('anime', json.dumps(bulk_anime))
+    cache.set('anime', json.dumps(bulk_anime), ex=300)
     return bulk_anime[start:end]
 
 

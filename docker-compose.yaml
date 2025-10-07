@@ -23,9 +23,18 @@ services:
      depends_on:
        - redis
        - db
-   dramatiq:
+   dramatiq_fill_db:
      build: .
-     command: dramatiq dramatiq_actors.db_fill_actor --processes 1 --threads 1
+     command: dramatiq dramatiq_actors.db_fill_actor --processes 1 --threads 1 --queues heavy_tasks
+     depends_on:
+       - db
+       - web
+       - redis
+     volumes:
+       - .:/code
+   dramatiq_watch_expired_redis_ttl:
+     build: .
+     command: dramatiq dramatiq_actors.redis_key_availability --processes 4 --threads 4 --queues light_tasks
      depends_on:
        - db
        - web

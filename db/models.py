@@ -1,4 +1,3 @@
-from datetime import datetime, date
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
@@ -10,24 +9,36 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     email: str = Field(index=True, unique=True)
     hashed_password: str
+    is_admin: Optional[bool] = Field(default=False)
+    disabled: Optional[bool] = Field(default=True)
+    is_verified: Optional[bool] = Field(default=False)
 
 
 class UserCreate(SQLModel):
     username: str
     email: str
     password: str
+    is_admin: Optional[bool] = Field(default=False)
+    disabled: Optional[bool] = Field(default=True)
+    is_verified: Optional[bool] = Field(default=False)
 
 
 class UserRead(SQLModel):
     id: int
     username: str
     email: str
+    is_admin: bool
+    disabled: bool
+    is_verified: bool
 
 
 class UserUpdate(SQLModel):
-    username: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
+    username: Optional[str] = Field(default=None)
+    email: Optional[str] = Field(default=None)
+    password: Optional[str] = Field(default=None)
+    is_admin: Optional[bool] = Field(default=None)
+    disabled: Optional[bool] = Field(default=True)
+    is_verified: Optional[bool] = Field(default=None)
 
 
 # --- Genre ---
