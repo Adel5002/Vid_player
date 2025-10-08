@@ -292,7 +292,7 @@ def create_anime_info(session: Session, info_data: AnimeInfoCreate) -> AnimeInfo
             # Проверяем, есть ли такой жанр в таблице Genre
             genre = session.scalars(select(Genre).where(Genre.name == g.name)).first()
             if not genre:
-                genre = Genre(name=g.name)
+                genre = Genre(name=g.name, russian=g.russian)
                 session.add(genre)
                 session.commit()
                 session.refresh(genre)

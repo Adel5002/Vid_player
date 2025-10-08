@@ -71,15 +71,55 @@ async def get_all_anime(
 
 @router.get('/get-anime-by-name/{name}')
 async def get_anime(name: str, session: Session = Depends(get_session)) -> Sequence[dict]:
-    from_my_db = get_anime_by_name(session, name)
-    if not from_my_db:
+    # 1️⃣ Пытаемся найти в БД
+    from_db = get_anime_by_name(session, name)
+
+    # 2️⃣ Собираем все известные названия из БД
+    db_names = set()
+    for a in from_db:
+        if a.get("name"):
+            db_names.add(a["name"].lower())
+        if a.get("russian"):
+            db_names.add(a["russian"].lower())
+
+    # 3️⃣ Нормализуем запрос
+    query_name = name.lower().strip()
+
+    # 4️⃣ Определяем, нужно ли идти в API
+    need_api = False
+
+    if not from_db:
+        # если вообще ничего нет в БД
+        need_api = True
+    else:
+        exact_match = any(query_name == n for n in db_names)
+        partial_match = any(query_name in n for n in db_names)
+
+        # если нет совпадений вообще
+        if not exact_match and not partial_match:
+            need_api = True
+        # если совпадение частичное и результатов мало
+        elif partial_match and len(from_db) < 3:
+            need_api = True
+
+    # 5️⃣ Если нужно — ищем через API
+    from_api = []
+    if need_api:
         animes = await search_for_anime(anime_name=name)
-
         add_anime_to_queue.send(animes)
-        animes = [validate_anime_dict(anime).model_dump() for anime in animes]
-        return animes
 
-    return from_my_db
+        validated = [validate_anime_dict(a).model_dump() for a in animes]
+
+        # фильтруем дубликаты по имени и русскому названию
+        from_api = [
+            a for a in validated
+            if a["name"].lower() not in db_names
+            and (a.get("russian") or "").lower() not in db_names
+        ]
+
+    # 6️⃣ Возвращаем объединённый результат
+    return [*from_db, *from_api]
+
 
 
 @router.get('/watch-anime/{anime_id}')

@@ -11,6 +11,9 @@ import "swiper/css/navigation";
 // Icons
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+// 🎥 Kodik Player
+import KodikPlayer from "../components/KodikPlayer";
+
 const ArrowButton = forwardRef(({ side = "left" }, ref) => (
   <button
     ref={ref}
@@ -73,7 +76,7 @@ const AnimeInfoPage = () => {
             </h1>
             <p className="text-gray-400 italic text-lg">{anime.name || "Нет английского названия"}</p>
 
-            {/* Теги */}
+           {/* Теги */}
             <div className="flex gap-3 text-sm flex-wrap">
               <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-green-500 to-emerald-700 shadow">
                 {anime.status || "Статус неизвестен"}
@@ -89,6 +92,26 @@ const AnimeInfoPage = () => {
               </span>
             </div>
 
+            {/* 🎭 Жанры */}
+            {anime.info.genres?.length > 0 && (
+            <div className="mt-6">
+              <div className="flex flex-wrap gap-2">
+                {anime.info.genres.map((genre) => (
+                  <span
+                    key={genre.id}
+                    className="px-4 py-1.5 text-sm font-medium rounded-full border border-purple-500/40 
+                              bg-purple-900/20 backdrop-blur-sm text-purple-200 
+                              hover:bg-purple-600/20 hover:text-pink-300 hover:border-pink-400/60 
+                              shadow-[0_0_10px_rgba(168,85,247,0.3)] 
+                              transition-all duration-300"
+                  >
+                    {genre.russian}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
             {/* Описание */}
             <div
               className="prose prose-invert max-w-none bg-black/40 p-5 rounded-2xl border border-white/10 shadow-lg leading-relaxed text-gray-200"
@@ -102,7 +125,20 @@ const AnimeInfoPage = () => {
           </div>
         </div>
 
-        {/* Трейлеры */}
+        {/* 🎥 Смотреть аниме */}
+        <div>
+          <h2 className="text-3xl font-bold mb-6 border-l-4 border-rose-500 pl-3">
+            🎥 Смотреть аниме
+          </h2>
+          {anime.info.kodik_player_url != 'none' ? (
+            <KodikPlayer src={anime.info.kodik_player_url} startTime={0} />
+          ) : (
+            <h2 className="text-gray-500 italic">🎞 Видеофайл отсутствует</h2>
+          )}
+
+        </div>
+
+        {/* 🎬 Трейлеры */}
         <div>
           <h2 className="text-3xl font-bold mb-6 border-l-4 border-pink-500 pl-3">
             🎬 Трейлеры
@@ -152,7 +188,7 @@ const AnimeInfoPage = () => {
           )}
         </div>
 
-        {/* Скриншоты */}
+        {/* 🖼 Скриншоты */}
         <div>
           <h2 className="text-3xl font-bold mb-6 border-l-4 border-purple-500 pl-3">
             🖼 Скриншоты

@@ -13,7 +13,7 @@ load_dotenv()
 
 
 async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', status: str = '', page: int = 1) -> dict|None:
-    client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL")))
+    client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL"), timeout=15))
 
     query = gql(
         """
@@ -70,7 +70,7 @@ async def get_anime_list(limit: int = 50, season: str = f'{date.today().year}', 
         return result
 
 async def search_for_anime(anime_id: str = "", anime_name: str = "", limit: int = 50) -> list[dict]:
-    client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL")))
+    client = Client(transport=AIOHTTPTransport(os.getenv("SHIKIMORI_GRAPHQL"), timeout=15))
     query = gql(
         """
        query getAnimeList ($ids: String!, $anime_name: String!, $limit: Int!) {
@@ -122,7 +122,7 @@ async def search_for_anime(anime_id: str = "", anime_name: str = "", limit: int 
     variables = {"ids": anime_id, "anime_name": anime_name, "limit": limit}
 
     async with client as session:
-        result = await session.execute(query, variable_values=variables)
+        result = await session.execute(query, variable_values=variables,)
         return result["animes"]
 
 if __name__ == "__main__":

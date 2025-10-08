@@ -1,17 +1,22 @@
 import asyncio
+import os
 from datetime import date
 
 import dramatiq
 
+
 from sqlmodel import Session
+
 
 from db.crud import create_anime_info, create_anime, get_anime_by_shikimori_id
 from db.db import engine
 from db.models import AnimeInfoCreate, AnimePosterCreate, AnimeCreate
 
 from dramatiq_actors import dramatiq_settings
+from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
 from redis_cache import cache
 from utils.graphql_requests import get_anime_list
+
 
 
 @dramatiq.actor(queue_name="heavy_tasks")
@@ -41,7 +46,7 @@ async def add_anime_to_queue(animes: list[dict]) -> None:
     cache.delete('anime')
     for anime in animes:
         add_anime_to_db.send(anime)
-        await asyncio.sleep(1)
+        await asyncio.sleep(1.5)
 
 @dramatiq.actor(max_retries=5, min_backoff=1000, max_backoff=30000, queue_name="heavy_tasks")
 async def add_anime_to_db(anime_data: dict) -> None:
@@ -54,6 +59,7 @@ async def add_anime_to_db(anime_data: dict) -> None:
 
         originalUrl = anime_data.get("poster", {}).get("originalUrl")
         mainUrl = anime_data.get("poster", {}).get("main2xUrl")
+        kodik_player_url = await get_player_by_id(anime_data.get("id"))
 
         anime = AnimeCreate(
             name=anime_data.get("name"),
@@ -99,7 +105,9 @@ async def add_anime_to_db(anime_data: dict) -> None:
             studios=anime_data.get("studios"),
             genres=anime_data.get("genres"),
             is_censored=anime_data.get("isCensored"),
+            kodik_player_url=kodik_player_url,
         )
 
         create_anime_info(session, anime_info_data)
         print(f"✅ Аниме добавлено: {anime_data.get('name')}")
+    await asyncio.sleep(1)

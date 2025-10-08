@@ -50,17 +50,20 @@ class AnimeGenreLink(SQLModel, table=True):
 class Genre(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: Optional[str] = None
+    russian: Optional[str] = None
 
     info: List["AnimeInfo"] = Relationship(back_populates="genres", link_model=AnimeGenreLink)
 
 
 class GenreCreate(SQLModel):
     name: Optional[str] = None
+    russian: Optional[str] = None
 
 
 class GenreRead(SQLModel):
     id: Optional[int]
     name: Optional[str] = None
+    russian: Optional[str] = None
 
 
 # --- Anime ---
@@ -176,6 +179,7 @@ class AnimeInfo(SQLModel, table=True):
     videos: Optional[List] = Field(default=None, sa_column=Column(CleanJSONList))
     screenshots: Optional[List] = Field(default=None, sa_column=Column(JSON))
     is_censored: Optional[bool] = False
+    kodik_player_url: Optional[str] = Field(default=None)
 
 
     anime: Optional["Anime"] = Relationship(back_populates="info", sa_relationship_kwargs={"uselist": False})
@@ -201,6 +205,9 @@ class AnimeInfoCreate(SQLModel):
     studios: Optional[List] = None
     videos: Optional[List] = None
     screenshots: Optional[List] = None
+    is_censored: Optional[bool] = False
+    kodik_player_url: Optional[str] = Field(default=None)
+
     genres: Optional[List["GenreCreate"]] = None
 
 
@@ -224,6 +231,8 @@ class AnimeInfoRead(SQLModel):
     studios: Optional[List] = None
     videos: Optional[List] = None
     screenshots: Optional[List] = None
+    is_censored: Optional[bool] = False
+    kodik_player_url: Optional[str] = None
 
     genres: Optional[List["GenreRead"]] = None
 

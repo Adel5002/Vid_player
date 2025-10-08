@@ -5,28 +5,39 @@ import axios from "axios";
 const SearchResultsPage = () => {
   const { term } = useParams();
   const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
   const apiUrl = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchResults = async () => {
+    if (!term) return;
+
+    setLoading(true);
+
+    // Дебаунс: подождать 500 мс перед запросом
+    const timer = setTimeout(async () => {
       try {
         const response = await axios.get(`${apiUrl}/anime/get-anime-by-name/${term}`);
         setResults(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error(err);
         setResults([]);
+      } finally {
+        setLoading(false);
       }
-    };
-    fetchResults();
+    }, 500); // <-- задержка 0.5 секунды
+
+    // Очистка таймера при изменении term
+    return () => clearTimeout(timer);
   }, [term, apiUrl]);
 
   return (
     <div className="container mx-auto px-4 py-10">
       <h2 className="text-4xl font-extrabold mb-10 text-center text-white drop-shadow-md">
-        🔎 Результаты поиска:{" "}
-        <span className="text-blue-400">{term}</span>
+        🔎 Результаты поиска: <span className="text-blue-400">{term}</span>
       </h2>
+
+      {loading && <p className="text-gray-300 text-center mb-6">Загрузка...</p>}
 
       {results.length > 0 ? (
         <div className="grid md:grid-cols-2 gap-8">
@@ -55,18 +66,14 @@ const SearchResultsPage = () => {
                   <h3 className="text-2xl font-semibold text-white mb-1">
                     {anime.russian || anime.name}
                   </h3>
-                  <p className="text-gray-400 text-sm italic mb-3">
-                    {anime.name}
-                  </p>
+                  <p className="text-gray-400 text-sm italic mb-3">{anime.name}</p>
 
                   {/* Жанры */}
                   <div className="flex flex-wrap gap-2 mb-3">
                     {anime.info?.genres?.map((genre) => (
                       <span
                         key={genre.id}
-                        className="px-2 py-1 text-xs 
-                          bg-blue-600/30 text-blue-300 
-                          rounded-md"
+                        className="px-2 py-1 text-xs bg-blue-600/30 text-blue-300 rounded-md"
                       >
                         {genre.name}
                       </span>
@@ -77,14 +84,10 @@ const SearchResultsPage = () => {
                   {anime.info?.description ? (
                     <p
                       className="text-gray-300 text-sm line-clamp-3"
-                      dangerouslySetInnerHTML={{
-                        __html: anime.info.description_html,
-                      }}
+                      dangerouslySetInnerHTML={{ __html: anime.info.description_html }}
                     />
                   ) : (
-                    <p className="text-gray-300 text-sm line-clamp-3">
-                      Описание отсутствует
-                    </p>
+                    <p className="text-gray-300 text-sm line-clamp-3">Описание отсутствует</p>
                   )}
                 </div>
 
@@ -100,10 +103,12 @@ const SearchResultsPage = () => {
           ))}
         </div>
       ) : (
-        <p className="text-gray-400 text-center mt-20 text-lg">
-          ❌ Ничего не найдено по запросу:{" "}
-          <span className="text-red-400">{term}</span>
-        </p>
+        !loading && (
+          <p className="text-gray-400 text-center mt-20 text-lg">
+            ❌ Ничего не найдено по запросу:{" "}
+            <span className="text-red-400">{term}</span>
+          </p>
+        )
       )}
     </div>
   );

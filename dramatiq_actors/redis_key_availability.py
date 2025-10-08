@@ -1,3 +1,4 @@
+from dramatiq.middleware import TimeLimit
 from sqlmodel import Session
 
 import dramatiq
@@ -5,9 +6,14 @@ import time
 
 from db.crud import get_user_by_username
 from db.db import engine
+from dramatiq_actors.dramatiq_settings import broker
 from redis_cache import cache
 
 from dramatiq_actors import dramatiq_settings
+
+for mw in list(broker.middleware):
+    if isinstance(mw, TimeLimit):
+        broker.middleware.remove(mw)
 
 @dramatiq.actor(queue_name="light_tasks")
 def watch_expired_refresh_tokens():
