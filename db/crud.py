@@ -9,7 +9,7 @@ from .models import (
     User, UserCreate, UserUpdate,
     Anime, AnimeCreate, AnimePoster, AnimePosterCreate,
     Genre, GenreCreate, AnimeGenreLink,
-    AnimeInfo, AnimeInfoCreate, AnimeRead
+    AnimeInfo, AnimeInfoCreate, AnimeRead, Profile, ProfileCreate, ProfileUpdate, ProfileAnimeLink
 )
 
 
@@ -85,6 +85,39 @@ def delete_user(session: Session, user_id: int) -> dict[str, str]:
     session.commit()
     return {'success': 'ok'}
 
+# ------------------ Profile ------------------
+def read_profile(session: Session, profile_id: int) -> Optional[Profile]:
+    profile = session.get(Profile, profile_id)
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile with this id does not exists")
+
+    return profile
+
+def update_profile_data(session: Session, profile_data: ProfileUpdate, profile_id: int) -> Profile:
+    profile = session.get(Profile, profile_id)
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile with this id does not exists")
+
+    profile.sqlmodel_update(profile_data.model_dump())
+    session.add(profile)
+    session.commit()
+    session.refresh(profile)
+
+    profile_link = session.scalar(
+        select(ProfileAnimeLink)
+        .where(ProfileAnimeLink.profile_id == profile_id)
+        .where(ProfileAnimeLink.anime_id == profile_data.anime_id)
+    )
+
+    if not profile_link:
+        profile_anime_link = ProfileAnimeLink(anime_id=profile_data.anime_id, profile_id=profile_id)
+        session.add(profile_anime_link)
+
+    session.commit()
+
+    return profile
 
 # ------------------ Anime ------------------
 def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:

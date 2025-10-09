@@ -1,4 +1,6 @@
 from typing import Optional, List
+
+from pydantic import model_validator
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
 from sqlalchemy.types import TypeDecorator
@@ -12,6 +14,7 @@ class User(SQLModel, table=True):
     is_admin: Optional[bool] = Field(default=False)
     disabled: Optional[bool] = Field(default=True)
     is_verified: Optional[bool] = Field(default=False)
+    profile: Optional["Profile"] = Relationship(back_populates="user", cascade_delete=True)
 
 
 class UserCreate(SQLModel):
@@ -30,6 +33,7 @@ class UserRead(SQLModel):
     is_admin: bool
     disabled: bool
     is_verified: bool
+    profile: Optional["ProfileRead"]
 
 
 class UserUpdate(SQLModel):
@@ -40,6 +44,31 @@ class UserUpdate(SQLModel):
     disabled: Optional[bool] = Field(default=True)
     is_verified: Optional[bool] = Field(default=None)
 
+
+# --- Profile ---
+class ProfileAnimeLink(SQLModel, table=True):
+    anime_id: Optional[int] = Field(default=None, foreign_key="anime.id", primary_key=True)
+    profile_id: Optional[int] = Field(default=None, foreign_key="profile.id", primary_key=True)
+
+class Profile(SQLModel, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    user_id: int = Field(foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="profile")
+    anime: List["Anime"] = Relationship(back_populates="profile", link_model=ProfileAnimeLink)
+
+
+class ProfileCreate(SQLModel):
+    user_id: int
+    anime: Optional[List["Anime"]] = []
+
+class ProfileUpdate(SQLModel):
+    anime: Optional[List["Anime"]] = None
+    anime_id: int
+
+class ProfileRead(SQLModel):
+    id: int
+    user_id: int
+    anime: Optional[List["AnimeRead"]] = []
 
 # --- Genre ---
 class AnimeGenreLink(SQLModel, table=True):
@@ -97,6 +126,12 @@ class Anime(SQLModel, table=True):
         cascade_delete=True
     )
 
+    profile: List[Profile] = Relationship(
+        back_populates="anime",
+        link_model=ProfileAnimeLink,
+    )
+
+
 
 class AnimeCreate(SQLModel):
     shikimori_id: Optional[int] = None
@@ -112,6 +147,7 @@ class AnimeCreate(SQLModel):
     released_on: Optional[dict] = None
     poster: Optional["AnimePosterCreate"] = None
     info: Optional["AnimeInfoCreate"] = None
+    profile: Optional[List[Profile]] = []
     season: Optional[str] = None
 
     created_at: Optional[str] = None

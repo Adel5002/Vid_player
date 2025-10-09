@@ -15,6 +15,7 @@ from db.crud import (
 )
 from db.db import get_session
 from db.models import AnimeRead, Anime
+from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
 from redis_cache import cache
 
 from utils.graphql_requests import search_for_anime
@@ -128,6 +129,7 @@ async def watch_anime(anime_id: int, session: Session = Depends(get_session)) ->
 
     if not anime_info:
         anime = await search_for_anime(str(anime_id))
+        anime[0]["kodik_player_url"] = await get_player_by_id(anime[0].get("id", "none"))
         add_anime_to_db.send(anime[0])
         return validate_anime_dict(anime[0]).model_dump()
     return anime_info

@@ -15,7 +15,7 @@ from authorization.jwt_auth import authenticate_user, ACCESS_TOKEN_EXPIRE_MINUTE
     REFRESH_TOKEN_EXPIRE_DAYS, create_refresh_token, REFRESH_SECRET_KEY, ALGORITHM, ACCESS_SECRET_KEY, \
     get_password_hash, create_email_verification_token, EMAIL_SECRET_KEY, EMAIL_TOKEN_EXPIRE_HOURS
 from db.db import get_session
-from db.models import UserCreate, User
+from db.models import UserCreate, User, Profile
 from redis_cache import cache
 
 from utils.fastapi_verification_mail import send_verification_email
@@ -132,6 +132,14 @@ async def register_user(user_data: UserCreate, session: Session = Depends(get_se
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
+
+    new_profile = Profile(
+        user_id=new_user.id
+    )
+
+    session.add(new_profile)
+    session.commit()
+    session.refresh(new_profile)
 
     # Генерация токена
     token = create_email_verification_token(new_user.email)

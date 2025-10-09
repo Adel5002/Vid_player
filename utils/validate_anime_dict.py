@@ -43,6 +43,7 @@ def validate_anime_dict(item: dict) -> Anime:
             licensors=item.get("licensors"),
             studios=item.get("studios"),
             genres=item.get("genres"),
+            kodik_player_url=item.get("kodik_player_url"),
             is_censored=item.get("isCensored"),
         )
     )
