@@ -13,6 +13,7 @@ from dramatiq_actors.redis_key_availability import watch_expired_refresh_tokens
 from endpoints.user import router as user_router
 from endpoints.anime import router as anime_router
 from endpoints.register import router as reg_router
+from endpoints.watch_anime import router as watch_router
 from redis_cache import cache
 
 scheduler = AsyncIOScheduler(timezone=timezone("Europe/Moscow"))
@@ -35,6 +36,7 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(user_router, prefix="/users", tags=["users"])
 app.include_router(anime_router, prefix="/anime", tags=["anime"])
 app.include_router(reg_router, prefix="/reg", tags=["reg"])
+app.include_router(watch_router, prefix="/watch-list", tags=["watch"])
 
 
 origins = [

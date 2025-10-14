@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
         formData.append("username", username);
         formData.append("password", password);
 
+        const userInfo = await api.get(`/users/get-user-by-name/${username}`);
         const { data } = await api.post("/reg/refresh-token", formData, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
@@ -28,6 +29,7 @@ export const AuthProvider = ({ children }) => {
         setAuthTokens(data);
         setUser(jwtDecode(data.access_token));
         localStorage.setItem("authTokens", JSON.stringify(data));
+        localStorage.setItem("user", JSON.stringify(userInfo["data"]));
         return true;
     } catch (error) {
         console.error("Login failed:", error.response?.data || error);
@@ -39,13 +41,15 @@ export const AuthProvider = ({ children }) => {
     setAuthTokens(null);
     setUser(null);
     localStorage.removeItem("authTokens");
+    localStorage.removeItem("user");
   };
 
   const updateToken = async () => {
+    console.log('UPDATE')
     if (!authTokens?.refresh_token) return logoutUser();
 
     try {
-      const { data } = await api.post("/access-token", {
+      const { data } = await api.post("/reg/access-token", {
         refresh_token: authTokens.refresh_token,
       });
 

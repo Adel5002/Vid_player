@@ -108,7 +108,7 @@ def get_new_refresh_token(
     return JSONResponse({
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
     })
 
 
@@ -148,9 +148,10 @@ async def register_user(user_data: UserCreate, session: Session = Depends(get_se
     cache.setex(f"email_token:{new_user.username}", timedelta(hours=EMAIL_TOKEN_EXPIRE_HOURS), token)
 
     # TODO: на проде заменить на new_user.email
-    await send_verification_email(os.getenv('TEST_EMAIL'), verification_link)
+    # await send_verification_email(os.getenv('TEST_EMAIL'), verification_link)
 
-    return JSONResponse({"message": "User created. Check your email for verification."})
+    print(verification_link)
+    return JSONResponse({"message": f"User created. Check your email for verification."})
 
 from fastapi.responses import RedirectResponse
 

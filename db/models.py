@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from pydantic import model_validator
+from pydantic import model_validator, field_serializer
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
 from sqlalchemy.types import TypeDecorator
@@ -14,7 +14,13 @@ class User(SQLModel, table=True):
     is_admin: Optional[bool] = Field(default=False)
     disabled: Optional[bool] = Field(default=True)
     is_verified: Optional[bool] = Field(default=False)
-    profile: Optional["Profile"] = Relationship(back_populates="user", cascade_delete=True)
+    profile: Optional["Profile"] = Relationship(
+        back_populates="user",
+        cascade_delete=True,
+        sa_relationship_kwargs={
+            "uselist": False
+        }
+    )
 
 
 class UserCreate(SQLModel):
@@ -36,6 +42,17 @@ class UserRead(SQLModel):
     profile: Optional["ProfileRead"]
 
 
+class UserFrontendRead(SQLModel):
+    id: int
+    username: str
+    profile: Optional["ProfileReadID"]
+
+    @field_serializer("profile")
+    def serialize_profile(self, profile):
+        if profile is None:
+            return None
+        return profile.id
+
 class UserUpdate(SQLModel):
     username: Optional[str] = Field(default=None)
     email: Optional[str] = Field(default=None)
@@ -46,35 +63,93 @@ class UserUpdate(SQLModel):
 
 
 # --- Profile ---
-class ProfileAnimeLink(SQLModel, table=True):
-    anime_id: Optional[int] = Field(default=None, foreign_key="anime.id", primary_key=True)
-    profile_id: Optional[int] = Field(default=None, foreign_key="profile.id", primary_key=True)
-
 class Profile(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     user_id: int = Field(foreign_key="user.id")
     user: Optional[User] = Relationship(back_populates="profile")
-    anime: List["Anime"] = Relationship(back_populates="profile", link_model=ProfileAnimeLink)
-
+    watch_anime: List["WatchAnime"] = Relationship(
+        back_populates="profile",
+        cascade_delete=True
+    )
 
 class ProfileCreate(SQLModel):
     user_id: int
-    anime: Optional[List["Anime"]] = []
+    watch_anime: Optional[List["WatchAnime"]] = []
 
-class ProfileUpdate(SQLModel):
-    anime: Optional[List["Anime"]] = None
-    anime_id: int
 
 class ProfileRead(SQLModel):
     id: int
     user_id: int
-    anime: Optional[List["AnimeRead"]] = []
+    watch_anime: Optional[List["WatchAnime"]] = []
+
+class ProfileReadID(SQLModel):
+    id: int
+
+
+# --- JSON Helper ---
+class CleanJSONList(TypeDecorator):
+    impl = JSON
+
+    def process_bind_param(self, value, dialect):
+        if not value:
+            return None
+        result = [x for x in value if x is not None]
+        return None if len(result) == 0 else result
+
+    def process_result_value(self, value, dialect):
+        if not value:
+            return None
+        result = [x for x in value if x is not None]
+        return None if len(result) == 0 else result
+
+
+# --- WatchAnime ---
+class WatchAnime(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    seek: int
+    episode: int
+    season: int
+    finished: bool = Field(default=False)
+    translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
+    profile_id: int = Field(foreign_key="profile.id")
+    profile: Optional[Profile] = Relationship(back_populates="watch_anime")
+
+    anime_id: int = Field(foreign_key="anime.id")
+    anime: Optional["Anime"] = Relationship(back_populates="watch_anime")
+
+class WatchAnimeCreate(SQLModel):
+    seek: int
+    episode: int
+    season: int
+    translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    profile_id: int
+    anime_id: int
+    finished: bool = Field(default=False)
+
+class WatchAnimeUpdate(SQLModel):
+    seek: Optional[int] = Field(default=None)
+    episode: Optional[int] = Field(default=None)
+    season: Optional[int] = Field(default=None)
+    finished: Optional[bool] = Field(default=False)
+    translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
+class WatchAnimeRead(SQLModel):
+    id: int
+    seek: int
+    episode: int
+    season: int
+    finished: bool
+    translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    profile_id: int
+    anime_id: int
+    anime: Optional["AnimeRead"]
+
 
 # --- Genre ---
 class AnimeGenreLink(SQLModel, table=True):
     anime_info_id: Optional[int] = Field(default=None, foreign_key="animeinfo.id", primary_key=True)
     genre_id: Optional[int] = Field(default=None, foreign_key="genre.id", primary_key=True)
-
 
 class Genre(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -83,11 +158,9 @@ class Genre(SQLModel, table=True):
 
     info: List["AnimeInfo"] = Relationship(back_populates="genres", link_model=AnimeGenreLink)
 
-
 class GenreCreate(SQLModel):
     name: Optional[str] = None
     russian: Optional[str] = None
-
 
 class GenreRead(SQLModel):
     id: Optional[int]
@@ -126,9 +199,9 @@ class Anime(SQLModel, table=True):
         cascade_delete=True
     )
 
-    profile: List[Profile] = Relationship(
+    watch_anime: List[WatchAnime] = Relationship(
         back_populates="anime",
-        link_model=ProfileAnimeLink,
+        cascade_delete=True
     )
 
 
@@ -147,7 +220,7 @@ class AnimeCreate(SQLModel):
     released_on: Optional[dict] = None
     poster: Optional["AnimePosterCreate"] = None
     info: Optional["AnimeInfoCreate"] = None
-    profile: Optional[List[Profile]] = []
+    watch_anime: List[WatchAnime] = []
     season: Optional[str] = None
 
     created_at: Optional[str] = None
@@ -173,23 +246,6 @@ class AnimeRead(SQLModel):
 
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
-
-
-# --- JSON Helper ---
-class CleanJSONList(TypeDecorator):
-    impl = JSON
-
-    def process_bind_param(self, value, dialect):
-        if not value:
-            return None
-        result = [x for x in value if x is not None]
-        return None if len(result) == 0 else result
-
-    def process_result_value(self, value, dialect):
-        if not value:
-            return None
-        result = [x for x in value if x is not None]
-        return None if len(result) == 0 else result
 
 
 # --- AnimeInfo ---

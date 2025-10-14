@@ -9,7 +9,7 @@ from .models import (
     User, UserCreate, UserUpdate,
     Anime, AnimeCreate, AnimePoster, AnimePosterCreate,
     Genre, GenreCreate, AnimeGenreLink,
-    AnimeInfo, AnimeInfoCreate, AnimeRead, Profile, ProfileCreate, ProfileUpdate, ProfileAnimeLink
+    AnimeInfo, AnimeInfoCreate, AnimeRead, Profile, ProfileCreate, WatchAnimeCreate, WatchAnime, WatchAnimeUpdate
 )
 
 
@@ -85,6 +85,7 @@ def delete_user(session: Session, user_id: int) -> dict[str, str]:
     session.commit()
     return {'success': 'ok'}
 
+
 # ------------------ Profile ------------------
 def read_profile(session: Session, profile_id: int) -> Optional[Profile]:
     profile = session.get(Profile, profile_id)
@@ -94,30 +95,62 @@ def read_profile(session: Session, profile_id: int) -> Optional[Profile]:
 
     return profile
 
-def update_profile_data(session: Session, profile_data: ProfileUpdate, profile_id: int) -> Profile:
-    profile = session.get(Profile, profile_id)
 
-    if not profile:
+# ------------------ WatchAnime ------------------
+def create_watch_anime(session: Session, watch_anime_data: WatchAnimeCreate) -> Optional[WatchAnime]:
+    profile_exists = session.get(Profile, watch_anime_data.profile_id)
+    anime_exists = session.get(Anime, watch_anime_data.anime_id)
+
+    if not profile_exists:
+        raise HTTPException(status_code=404, detail="Profile with this id does not exists")
+    elif not anime_exists:
         raise HTTPException(status_code=404, detail="Profile with this id does not exists")
 
-    profile.sqlmodel_update(profile_data.model_dump())
-    session.add(profile)
+    watch_anime = WatchAnime(
+        **watch_anime_data.model_dump()
+    )
+    session.add(watch_anime)
     session.commit()
-    session.refresh(profile)
+    session.refresh(watch_anime)
 
-    profile_link = session.scalar(
-        select(ProfileAnimeLink)
-        .where(ProfileAnimeLink.profile_id == profile_id)
-        .where(ProfileAnimeLink.anime_id == profile_data.anime_id)
+    return watch_anime
+
+def update_watch_anime(session: Session, watch_anime_id: int, watch_anime_data: WatchAnimeUpdate) -> Optional[WatchAnime]:
+    watch_anime_exists = session.get(WatchAnime, watch_anime_id)
+
+    if not watch_anime_exists:
+        raise HTTPException(status_code=404, detail="Watch anime does not exists")
+
+    watch_anime_exists.sqlmodel_update(watch_anime_data.model_dump(exclude_unset=True))
+    session.add(watch_anime_exists)
+    session.commit()
+    session.refresh(watch_anime_exists)
+
+    return watch_anime_exists
+
+def read_watch_anime(session: Session, watch_anime_id: int) -> Optional[WatchAnime]:
+    watch_anime = session.get(WatchAnime, watch_anime_id)
+
+    if not watch_anime:
+        raise HTTPException(status_code=404, detail="Watch anime does not exists")
+
+    return watch_anime
+
+def read_watch_anime_by_profile_id(session: Session, profile_id: int, anime_id: int) -> Optional[WatchAnime]:
+    watch_anime = session.scalar(
+        select(WatchAnime)
+        .where(WatchAnime.profile_id == profile_id)
+        .where(WatchAnime.anime_id == anime_id)
     )
 
-    if not profile_link:
-        profile_anime_link = ProfileAnimeLink(anime_id=profile_data.anime_id, profile_id=profile_id)
-        session.add(profile_anime_link)
+    if not watch_anime:
+        raise HTTPException(status_code=404, detail="Not found...")
 
-    session.commit()
+    return watch_anime
 
-    return profile
+
+
+
 
 # ------------------ Anime ------------------
 def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:

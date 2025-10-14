@@ -131,7 +131,7 @@ const AnimeInfoPage = () => {
             🎥 Смотреть аниме
           </h2>
           {anime.info.kodik_player_url != 'none' ? (
-            <KodikPlayer src={anime.info.kodik_player_url} startTime={0} />
+            <KodikPlayer src={anime.info.kodik_player_url} anime_id={anime.id} />
           ) : (
             <h2 className="text-gray-500 italic">🎞 Видеофайл отсутствует</h2>
           )}
