@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { fetchAllAnime, fetchAnimeByName } from "../api/anime";
 import AnimeGrid from "../components/AnimeGrid";
 import AnimeList from "../components/AnimeList";
-import AnimeSearchBar from "../components/AnimeSearchBar";
 
 const AnimeListPage = () => {
   const [animeList, setAnimeList] = useState([]);
@@ -10,7 +9,7 @@ const AnimeListPage = () => {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [dbNotReady, setDbNotReady] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
+  
 
   const observer = useRef();
 
@@ -29,7 +28,7 @@ const AnimeListPage = () => {
   );
 
   useEffect(() => {
-    if (searchResults.length) return;
+    
     const loadAnime = async () => {
       setLoading(true);
       try {
@@ -49,20 +48,9 @@ const AnimeListPage = () => {
       }
     };
     loadAnime();
-  }, [page, searchResults]);
+  }, [page, ]);
 
-  const handleSearch = async (term) => {
-    setLoading(true);
-    try {
-      const response = await fetchAnimeByName(term);
-      setSearchResults(Array.isArray(response.data) ? response.data : []);
-    } catch (err) {
-      console.error(err);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   const statusOrder = ["ongoing", "released", "anons"];
   const groupedByStatus = statusOrder
@@ -83,11 +71,9 @@ const AnimeListPage = () => {
           </p>
         )}
 
-        {searchResults.length > 0 ? (
-          <AnimeList animeList={searchResults} />
-        ) : (
-          <AnimeGrid groupedByStatus={groupedByStatus} lastAnimeRef={lastAnimeRef} />
-        )}
+        
+        <AnimeGrid groupedByStatus={groupedByStatus} lastAnimeRef={lastAnimeRef} />
+        
 
         {loading && (
           <p className="text-center mt-8 text-gray-400 animate-pulse text-lg">
@@ -95,7 +81,7 @@ const AnimeListPage = () => {
           </p>
         )}
 
-        {!hasMore && !loading && !dbNotReady && searchResults.length === 0 && (
+        {!hasMore && !loading && !dbNotReady && (
           <p className="text-center mt-8 text-gray-500 italic">
             🎉 Все аниме загружены!
           </p>

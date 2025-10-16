@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from numpy.random.mtrand import Sequence
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, desc, col, or_
+from fastapi.responses import JSONResponse
 
 from authorization.jwt_auth import get_password_hash
 from .models import (
@@ -144,13 +145,19 @@ def read_watch_anime_by_profile_id(session: Session, profile_id: int, anime_id: 
     )
 
     if not watch_anime:
-        raise HTTPException(status_code=404, detail="Not found...")
+        raise HTTPException(status_code=404, detail="Not Found")
 
     return watch_anime
 
+def delete_watch_anime(session: Session, watch_anime_id: int) -> JSONResponse:
+    watch_anime = session.get(WatchAnime, watch_anime_id)
 
+    if not watch_anime:
+        raise HTTPException(status_code=404, detail="Watch list id does not exists")
 
-
+    session.delete(watch_anime)
+    session.commit()
+    return JSONResponse({"status": "ok"})
 
 # ------------------ Anime ------------------
 def create_anime(session: Session, anime_data: AnimeCreate) -> Anime:

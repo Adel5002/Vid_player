@@ -3,6 +3,7 @@ import AnimeSearchBar from "../components/AnimeSearchBar";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 const MainLayout = () => {
   const navigate = useNavigate();
@@ -58,7 +59,8 @@ const MainLayout = () => {
             {user ? (
               <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
                 <span className="text-sm text-gray-200 font-semibold flex items-center gap-1">
-                  👤 {user.sub}
+                  <Link to="/profile">👤 {user.sub}</Link>
+                  
                 </span>
                 <button
                   onClick={logoutUser}

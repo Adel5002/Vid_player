@@ -1,7 +1,11 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+from fastapi.responses import JSONResponse
 
-from db.crud import create_watch_anime, update_watch_anime, read_watch_anime, read_watch_anime_by_profile_id
+from db.crud import create_watch_anime, update_watch_anime, read_watch_anime, read_watch_anime_by_profile_id, \
+    delete_watch_anime
 from db.db import get_session
 from db.models import WatchAnime, WatchAnimeCreate, WatchAnimeUpdate, WatchAnimeRead
 
@@ -33,3 +37,7 @@ async def watch_anime_get(watch_anime_id: int, session: Session = Depends(get_se
 @router.get("/get-watch-anime-by-profile-id/{profile_id}/{anime_id}", response_model=WatchAnimeRead)
 async def watch_anime_get_by_profile_id(profile_id: int, anime_id: int, session: Session = Depends(get_session)) -> WatchAnime:
     return read_watch_anime_by_profile_id(session, profile_id, anime_id)
+
+@router.delete("/delete-watch-anime/{watch_anime_id}")
+async def watch_anime_delete(watch_anime_id: int, session: Session = Depends(get_session)):
+    return delete_watch_anime(session, watch_anime_id)

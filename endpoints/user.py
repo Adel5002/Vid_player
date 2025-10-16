@@ -4,6 +4,7 @@ from sqlmodel import Session
 from authorization.jwt_auth import get_current_user
 from db.db import get_session
 from db import crud, models
+from db.models import Profile, ProfileRead
 
 router = APIRouter()
 
@@ -56,3 +57,8 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
     if not deleted:
         raise HTTPException(status_code=404, detail="User not found")
     return {"ok": True}
+
+
+@router.get('/profile/{profile_id}', response_model=ProfileRead)
+async def get_profile(profile_id: int, session: Session = Depends(get_session)) -> Profile:
+    return crud.read_profile(session, profile_id)

@@ -8,6 +8,7 @@ import RegisterPage from "./pages/RegisterPage";
 import CheckEmail from "./pages/CheckEmail";
 import VerifyEmail from "./pages/VerifyEmail";
 import { AuthProvider } from "./context/AuthContext";
+import UserProfilePage from "./pages/UserProfilePage";
 import './index.css';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/check-email" element={<CheckEmail />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
+                <Route path="/profile" element={<UserProfilePage />} />
               </Route>
             </Routes>
           </Router>

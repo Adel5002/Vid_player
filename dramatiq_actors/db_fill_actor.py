@@ -28,7 +28,7 @@ async def fill_db(season: str = f'{date.today().year}'):
 
     limit = 50
 
-    for page in range(1, 30000):
+    for page in range(1, 10):
         safe_response = await get_anime_list(page=page, limit=limit, season=season)
         if not safe_response.get('animes'):
             print('ANIMESSS', safe_response)

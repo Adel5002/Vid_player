@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }) => {
       logoutUser();
     }
   };
-
+  // TODO: разобраться с перелогированием пользователя
   // ⏱ Автообновление токена каждые 10 минут
   useEffect(() => {
     if (!authTokens) return;

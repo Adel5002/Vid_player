@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 const AnimeCard = ({ anime }) => {
   return (
     <Link
-      to={`/anime/${anime.shikimori_id}`}   // 👉 теперь путь на фронте
+      to={`/anime/${anime.shikimori_id}`} 
       className="relative group rounded-xl overflow-hidden shadow-lg bg-gray-900 block"
     >
       {/* Постер */}

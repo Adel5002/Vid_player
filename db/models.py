@@ -80,7 +80,7 @@ class ProfileCreate(SQLModel):
 class ProfileRead(SQLModel):
     id: int
     user_id: int
-    watch_anime: Optional[List["WatchAnime"]] = []
+    watch_anime: Optional[List["WatchAnimeRead"]] = []
 
 class ProfileReadID(SQLModel):
     id: int
@@ -111,6 +111,7 @@ class WatchAnime(SQLModel, table=True):
     season: int
     finished: bool = Field(default=False)
     translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    is_disabled: bool = Field(default=False)
 
     profile_id: int = Field(foreign_key="profile.id")
     profile: Optional[Profile] = Relationship(back_populates="watch_anime")
@@ -126,6 +127,7 @@ class WatchAnimeCreate(SQLModel):
     profile_id: int
     anime_id: int
     finished: bool = Field(default=False)
+    is_disabled: bool = Field(default=False)
 
 class WatchAnimeUpdate(SQLModel):
     seek: Optional[int] = Field(default=None)
@@ -133,6 +135,7 @@ class WatchAnimeUpdate(SQLModel):
     season: Optional[int] = Field(default=None)
     finished: Optional[bool] = Field(default=False)
     translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    is_disabled: Optional[bool]  = Field(default=False)
 
 class WatchAnimeRead(SQLModel):
     id: int
@@ -141,6 +144,7 @@ class WatchAnimeRead(SQLModel):
     season: int
     finished: bool
     translation: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    is_disabled: bool
     profile_id: int
     anime_id: int
     anime: Optional["AnimeRead"]
