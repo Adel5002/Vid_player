@@ -45,13 +45,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateToken = async () => {
-    console.log('UPDATE')
     if (!authTokens?.refresh_token) return logoutUser();
-
     try {
-      const { data } = await api.post("/reg/access-token", {
+      const { data } = await api.post("/reg/access-token", null, {params: {
         refresh_token: authTokens.refresh_token,
-      });
+      }});
 
       const newTokens = {
         ...authTokens,
@@ -74,7 +72,7 @@ export const AuthProvider = ({ children }) => {
 
     const interval = setInterval(() => {
       updateToken();
-    }, 10 * 60 * 1000);
+    }, 15 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [authTokens]);
