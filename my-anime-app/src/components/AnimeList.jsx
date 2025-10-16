@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Star, Film, MoreHorizontal, X } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const AnimeList = ({ animeList = [], onRemove }) => {
   return (
@@ -93,7 +94,7 @@ const AnimeCard = ({ anime, onRemove, delay }) => {
                      shadow-lg shadow-blue-600/30 backdrop-blur-md transition"
         >
           <Play size={16} />
-          Смотреть
+          <Link to={`/anime/${anime.shikimori_id}`}>Смотреть</Link>
         </motion.button>
       </div>
 

@@ -17,22 +17,38 @@ const AnimeGrid = ({ groupedByStatus, lastAnimeRef }) => {
 
   return (
     <>
-      {groupedByStatus.map((group) => (
+      {groupedByStatus.map((group, groupIndex) => (
         <section key={group.status} className="space-y-6">
+          {/* Заголовок статуса */}
           <h2
-            className={`text-3xl font-bold border-b pb-2 ${getStatusStyle(
+            className={`text-2xl sm:text-3xl font-bold border-b pb-2 ${getStatusStyle(
               group.status
             )}`}
           >
             {group.status.toUpperCase()}
           </h2>
-          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+
+          {/* Сетка карточек */}
+          <div
+            className="
+              grid gap-6 sm:gap-8
+              grid-cols-1 
+              sm:grid-cols-2 
+              md:grid-cols-3 
+              lg:grid-cols-4 
+              xl:grid-cols-5
+            "
+          >
             {group.list.map((anime, index) => {
-              const isLast =
-                group.list.length === index + 1 &&
-                group.status === groupedByStatus[groupedByStatus.length - 1].status;
+              const isLastGroup = groupIndex === groupedByStatus.length - 1;
+              const isLastItem = index === group.list.length - 1;
+
+              // ref только на последнюю карточку последнего блока
+              const refProp =
+                isLastGroup && isLastItem ? { ref: lastAnimeRef } : {};
+
               return (
-                <div key={anime.id} ref={isLast ? lastAnimeRef : null}>
+                <div key={anime.id} {...refProp}>
                   <AnimeCard anime={anime} height="h-72" />
                 </div>
               );

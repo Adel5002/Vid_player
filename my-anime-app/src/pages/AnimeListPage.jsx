@@ -62,32 +62,28 @@ const AnimeListPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 text-white">
-      <div className="container mx-auto px-6 py-10 space-y-10">
-        
+    <div className="container mx-auto px-3 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-10">
+      {dbNotReady && (
+        <p className="text-center text-yellow-400 font-semibold bg-yellow-500/10 py-2 sm:py-3 px-3 rounded-lg shadow-md text-sm sm:text-base">
+          ⏳ База данных наполняется, попробуйте позже...
+        </p>
+      )}
 
-        {dbNotReady && (
-          <p className="text-center text-yellow-400 font-semibold bg-yellow-500/10 py-3 rounded-lg shadow-md">
-            ⏳ База данных наполняется, попробуйте позже...
-          </p>
-        )}
+      <AnimeGrid groupedByStatus={groupedByStatus} lastAnimeRef={lastAnimeRef} />
 
-        
-        <AnimeGrid groupedByStatus={groupedByStatus} lastAnimeRef={lastAnimeRef} />
-        
+      {loading && (
+        <p className="text-center mt-6 sm:mt-8 text-gray-400 animate-pulse text-base sm:text-lg">
+          🔄 Загрузка...
+        </p>
+      )}
 
-        {loading && (
-          <p className="text-center mt-8 text-gray-400 animate-pulse text-lg">
-            🔄 Loading anime...
-          </p>
-        )}
-
-        {!hasMore && !loading && !dbNotReady && (
-          <p className="text-center mt-8 text-gray-500 italic">
-            🎉 Все аниме загружены!
-          </p>
-        )}
-      </div>
+      {!hasMore && !loading && !dbNotReady && (
+        <p className="text-center mt-6 sm:mt-8 text-gray-500 italic text-sm sm:text-base">
+          🎉 Все аниме загружены!
+        </p>
+      )}
     </div>
+  </div>
   );
 };
 
