@@ -1,4 +1,5 @@
-import asyncio
+import os
+import ngrok
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -6,6 +7,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from pytz import timezone
+from loguru import logger
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from db.db import init_db, drop_db
 from dramatiq_actors.db_fill_actor import fill_db
@@ -16,10 +21,15 @@ from endpoints.register import router as reg_router
 from endpoints.watch_anime import router as watch_router
 from redis_cache import cache
 
+NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN")
+NGROK_DOMAIN = os.getenv("NGROK_DOMAIN")
+APPLICATION_PORT = 8000
+
 scheduler = AsyncIOScheduler(timezone=timezone("Europe/Moscow"))
 async def update_db():
     cache.delete('anime')
     fill_db.send()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,10 +38,23 @@ async def lifespan(app: FastAPI):
 
     scheduler.add_job(update_db, "cron", hour=0, minute=0)
     scheduler.start()
-    yield
-    # cache.flushall()
 
-app = FastAPI(lifespan=lifespan)
+    logger.info("Setting up Ngrok Endpoint")
+    ngrok.set_auth_token(NGROK_AUTH_TOKEN)
+
+    # Простой способ без указания proto
+    public_url = ngrok.forward(
+        addr=APPLICATION_PORT,
+        domain=NGROK_DOMAIN,
+        inspect=True,
+    )
+
+    logger.info(f"Ngrok tunnel created: {public_url}")
+    yield
+    logger.info("Tearing Down Ngrok Endpoint")
+    ngrok.disconnect()
+
+app = FastAPI(lifespan=lifespan, root_path="/api")
 
 app.include_router(user_router, prefix="/users", tags=["users"])
 app.include_router(anime_router, prefix="/anime", tags=["anime"])
@@ -47,7 +70,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # или ["*"] для всех origin
+    allow_origins=["*"],  # или ["*"] для всех origin
     allow_credentials=True,  # важно, если используешь куки
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,5 +91,5 @@ async def fill_db_endpoint():
     return {'status': 'ok'}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=APPLICATION_PORT)
 

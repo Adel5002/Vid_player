@@ -70,7 +70,8 @@ const UserProfilePage = () => {
       </div>
     );
   }
-
+  // TODO: Удалять аниме после просмотра
+  // TODO: Рекомендации на основе просмотра
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-black to-gray-900 text-white">
       <div className="container mx-auto px-6 py-10 space-y-10">

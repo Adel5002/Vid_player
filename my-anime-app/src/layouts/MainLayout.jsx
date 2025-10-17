@@ -2,7 +2,7 @@ import { Outlet, useNavigate, Link } from "react-router-dom";
 import AnimeSearchBar from "../components/AnimeSearchBar";
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 const MainLayout = () => {
@@ -14,6 +14,13 @@ const MainLayout = () => {
     if (term.trim()) navigate(`/search/${term}`);
   };
 
+  // 💫 Анимация мобильного меню
+  const menuVariants = {
+    hidden: { opacity: 0, y: -20, transition: { duration: 0.25 } },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+    exit: { opacity: 0, y: -15, transition: { duration: 0.25 } },
+  };
+
   return (
     <div className="min-h-screen text-white font-sans relative overflow-x-hidden">
       {/* 🌌 Фон */}
@@ -23,7 +30,6 @@ const MainLayout = () => {
       {/* 🧭 HEADER */}
       <header className="sticky top-0 z-30 bg-black/30 backdrop-blur-md border-b border-white/10 shadow-[0_0_30px_-10px_rgba(59,130,246,0.4)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          
           {/* 🎬 ЛОГО */}
           <motion.h1
             onClick={() => navigate("/")}
@@ -34,12 +40,19 @@ const MainLayout = () => {
           </motion.h1>
 
           {/* 📱 Бургер */}
-          <button
+          <motion.button
             onClick={() => setMenuOpen(!menuOpen)}
+            whileTap={{ scale: 0.9 }}
             className="sm:hidden text-gray-300 hover:text-blue-400 transition"
           >
-            {menuOpen ? <X size={26} /> : <Menu size={26} />}
-          </button>
+            <motion.div
+              initial={false}
+              animate={{ rotate: menuOpen ? 180 : 0 }}
+              transition={{ duration: 0.4, type: "spring" }}
+            >
+              {menuOpen ? <X size={26} /> : <Menu size={26} />}
+            </motion.div>
+          </motion.button>
 
           {/* 🧭 Навигация (Desktop) */}
           <nav className="hidden sm:flex items-center space-x-10 text-gray-300 font-medium">
@@ -83,27 +96,80 @@ const MainLayout = () => {
           </div>
         </div>
 
-        {/* 📱 Мобильное меню */}
-        {menuOpen && (
-          <div className="sm:hidden flex flex-col items-center gap-4 bg-black/70 backdrop-blur-lg border-t border-white/10 py-5">
-            <button onClick={() => navigate("/")} className="hover:text-blue-400">Главная</button>
-            <button onClick={() => navigate("/trending")} className="hover:text-blue-400">Популярное</button>
-            <button onClick={() => navigate("/genres")} className="hover:text-blue-400">Жанры</button>
-
-            {user ? (
-              <>
-                <Link to="/profile" className="text-blue-400 font-semibold">{user.sub}</Link>
-                <button onClick={logoutUser} className="text-red-400 font-semibold">
-                  Выйти
-                </button>
-              </>
-            ) : (
-              <button onClick={() => navigate("/login")} className="text-blue-400 font-semibold">
-                Войти
+        {/* 📱 Мобильное меню с плавной анимацией */}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              key="mobile-menu"
+              variants={menuVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="sm:hidden flex flex-col items-center gap-4 bg-black/70 backdrop-blur-lg border-t border-white/10 py-6 shadow-lg"
+            >
+              <button
+                onClick={() => {
+                  navigate("/");
+                  setMenuOpen(false);
+                }}
+                className="w-full text-center py-2 hover:text-blue-400 transition"
+              >
+                Главная
               </button>
-            )}
-          </div>
-        )}
+
+              <button
+                onClick={() => {
+                  navigate("/trending");
+                  setMenuOpen(false);
+                }}
+                className="w-full text-center py-2 hover:text-blue-400 transition"
+              >
+                Популярное
+              </button>
+
+              <button
+                onClick={() => {
+                  navigate("/genres");
+                  setMenuOpen(false);
+                }}
+                className="w-full text-center py-2 hover:text-blue-400 transition"
+              >
+                Жанры
+              </button>
+
+              {user ? (
+                <>
+                  <Link
+                    to="/profile"
+                    className="w-full text-center py-2 text-blue-400 font-semibold"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {user.sub}
+                  </Link>
+                  <button
+                    onClick={() => {
+                      logoutUser();
+                      setMenuOpen(false);
+                    }}
+                    className="w-full text-center py-2 text-red-400 font-semibold"
+                  >
+                    Выйти
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    navigate("/login");
+                    setMenuOpen(false);
+                  }}
+                  className="w-full text-center py-2 text-blue-400 font-semibold"
+                >
+                  Войти
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* 🔍 Поиск */}
