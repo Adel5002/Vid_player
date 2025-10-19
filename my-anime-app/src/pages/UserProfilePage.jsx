@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
-import AnimeGrid from "../components/AnimeGrid";
 import AnimeList from "../components/AnimeList";
 import { api } from "../api/axios";
-import { data } from "react-router-dom";
 
 const UserProfilePage = () => {
   const [animeList, setAnimeList] = useState([]);

@@ -1,4 +1,7 @@
-from typing import Optional
+import base64
+import json
+import re
+from typing import Optional, Dict, Any
 from fastapi import HTTPException
 from numpy.random.mtrand import Sequence
 from sqlalchemy.exc import IntegrityError
@@ -232,12 +235,7 @@ def get_anime_by_name(session: Session, name: str) -> Sequence[dict]:
 
     return result
 
-
-# def get_anime_by_shikimori_id(session: Session, shikimori_id: int) -> Optional[Anime]:
-#     return session.scalar(select(Anime).where(Anime.shikimori_id == shikimori_id))
-
-
-from sqlalchemy import case, select, desc
+from sqlalchemy import case, select, desc, func, cast, Integer, and_, asc, Numeric
 from sqlalchemy.orm import selectinload
 import datetime
 from typing import Sequence
@@ -290,9 +288,6 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
 
     return result
 
-
-
-
 def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[dict]:
     anime = session.scalar(select(Anime).where(Anime.shikimori_id == shikimori_id))
     if not anime:
@@ -320,7 +315,6 @@ def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[d
 
     return anime
 
-
 def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Anime:
     anime = session.get(Anime, anime_id)
     if not anime:
@@ -334,10 +328,8 @@ def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> An
     session.refresh(anime)
     return anime
 
-
 def get_all_possible_anime(session: Session) -> Sequence[Anime]:
     return session.scalars(select(Anime)).all()
-
 
 def delete_anime(session: Session, anime_id: int) -> dict[str, str]:
     anime = session.get(Anime, anime_id)
@@ -346,6 +338,159 @@ def delete_anime(session: Session, anime_id: int) -> dict[str, str]:
     session.delete(anime)
     session.commit()
     return {'success': 'ok'}
+
+
+def encode_page(data: Dict[str, Any]) -> str:
+    """Кодирует словарь в base64 (URL-safe)."""
+    raw = json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode()
+    return base64.urlsafe_b64encode(raw).decode()
+
+
+def decode_page(token: str) -> Dict[str, Any]:
+    """Декодирует base64 токен в словарь (безопасно)."""
+    try:
+        raw = base64.urlsafe_b64decode(token.encode())
+        return json.loads(raw.decode())
+    except Exception:
+        return {}
+
+
+
+def popular_anime_get(
+    session: Session,
+    limit: int,
+    next_page: Optional[str] = None,
+    prev_page: Optional[str] = None,
+):
+    """
+    Двунаправленная пагинация по (season_year DESC, score DESC)
+    с base64-курсорами next_page / prev_page.
+
+    Возвращает:
+      {
+        "items": [...],
+        "next_page": "<base64>|None",
+        "prev_page": "<base64>|None",
+        "has_next": bool,
+        "has_prev": bool
+      }
+    """
+
+    # безопасные выражения:
+    # 1) год из season: CAST(NULLIF(regexp_replace(...), '' ) AS INTEGER)
+    season_year_expr = cast(
+        func.nullif(func.regexp_replace(
+            # season вида 'fall_2023' → '2023'
+            # всё, что не цифра, убираем
+            # если цифр нет → '' → NULL
+            # затем CAST(NULL AS INTEGER) безопасно
+            # важно: это одно выражение переиспользуем везде
+            # чтобы не дублировать и не ошибиться
+            # Anime.season можно заменить на нужную колонку
+            # например models.Anime.season
+            # здесь предполагаю модель Anime уже импортирована
+            # см. импорт выше
+            # ↓↓↓
+            # Anime.season
+            # ↑↑↑
+            Anime.season,
+            '[^0-9]', '', 'g'
+        ), ''),
+        Integer
+    )
+
+    # базовые фильтры: валидные season + не "anons" и год реально извлечён
+    base = select(Anime).where(
+        Anime.season.is_not(None),
+        ~Anime.season.in_(["?", "unknown", "", "None"]),
+        Anime.status != "anons",
+        season_year_expr.is_not(None),
+        Anime.score > 6
+    )
+
+    # определяем направление и раскодируем токен
+    direction = "next" if next_page else ("prev" if prev_page else None)
+    page_data = decode_page(next_page or prev_page) if (next_page or prev_page) else None
+
+    # применяем курсор-фильтр
+    if page_data:
+        # выдернем год из season, например "spring_2025" -> 2025
+        m = re.search(r"[0-9]+", page_data.get("season", "") or "")
+        season_year_val = int(m.group()) if m else 0
+
+        # score из токена; если был строкой — ОК, приводим к float для корректного сравнения как числа
+        score_val = page_data.get("score", 0)
+        try:
+            score_val = float(score_val)
+        except Exception:
+            score_val = 0.0
+
+        if direction == "next":
+            # всё, что идёт ПОСЛЕ текущей позиции в порядке (year DESC, score DESC):
+            #   year < Y  OR (year = Y AND score < S)
+            base = base.where(
+                or_(
+                    season_year_expr < season_year_val,
+                    and_(season_year_expr == season_year_val, Anime.score < score_val),
+                )
+            )
+        else:
+            # всё, что идёт ДО текущей позиции (для prev) — зеркально:
+            #   year > Y  OR (year = Y AND score > S)
+            base = base.where(
+                or_(
+                    season_year_expr > season_year_val,
+                    and_(season_year_expr == season_year_val, Anime.score > score_val),
+                )
+            )
+
+    # сортировка: для next — DESC, для prev — ASC (идём в обратную сторону)
+    order = desc if direction != "prev" else asc
+    base = base.order_by(
+        order(season_year_expr),
+        order(Anime.score)
+    ).limit(limit + 1)
+
+    rows = session.scalars(base).all()
+
+    # если шли назад — разворачиваем, чтобы на фронт отдать в «обычном» порядке
+    if direction == "prev":
+        rows = list(reversed(rows))
+
+    # первые limit — это текущая страница
+    items = [
+        AnimeRead(**r.model_dump(), poster=r.poster)
+        for r in rows[:limit]
+    ]
+
+    # флаги и курсоры на обе стороны
+    has_next = has_prev = False
+
+    if direction == "next":
+        has_next = len(rows) > limit
+        has_prev = True if (next_page or prev_page) else False  # если уже листали — назад есть
+    elif direction == "prev":
+        has_prev = len(rows) > limit
+        has_next = True  # если листали назад, вперёд точно есть
+    else:
+        # первая страница без курсоров
+        has_next = len(rows) > limit
+        has_prev = False
+
+    # упаковываем курсоры
+    next_page_token = prev_page_token = None
+    if items:
+        first, last = items[0], items[-1]
+        next_page_token = encode_page({"season": last.season, "score": last.score})
+        prev_page_token = encode_page({"season": first.season, "score": first.score})
+
+    return {
+        "items": items,
+        "next_page": (next_page_token if has_next else None),
+        "prev_page": (prev_page_token if has_prev else None),
+        "has_next": has_next,
+        "has_prev": has_prev,
+    }
 
 
 # ------------------ Anime Info ------------------

@@ -69,15 +69,6 @@ const AnimeCard = ({ anime }) => {
             ⭐ {anime.score || "N/A"}
           </p>
 
-          <div
-            className="text-gray-300 text-xs line-clamp-3"
-            dangerouslySetInnerHTML={{
-              __html:
-                anime.info?.description_html ||
-                "<em>Описание отсутствует</em>",
-            }}
-          />
-
           <p
             className={`mt-2 text-xs font-semibold ${statusColor}`}
           >

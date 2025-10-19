@@ -59,9 +59,9 @@ const MainLayout = () => {
             <button onClick={() => navigate("/")} className="hover:text-blue-400 transition">
               Главная
             </button>
-            <button onClick={() => navigate("/trending")} className="hover:text-blue-400 transition">
+            <Link to="/trending" className="hover:text-blue-400 transition">
               Популярное
-            </button>
+            </Link>
             <button onClick={() => navigate("/genres")} className="hover:text-blue-400 transition">
               Жанры
             </button>

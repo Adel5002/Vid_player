@@ -71,7 +71,7 @@ async def add_anime_to_db(anime_data: dict) -> None:
                 russian=anime_data.get("russian"),
                 url=anime_data.get("url"),
                 kind=anime_data.get("kind"),
-                score=str(anime_data.get("score")),
+                score=anime_data.get("score"),
                 status=anime_data.get("status"),
                 episodes=anime_data.get("episodes", 0),
                 episodes_aired=anime_data.get("episodesAired", 0),
@@ -88,6 +88,8 @@ async def add_anime_to_db(anime_data: dict) -> None:
             )
 
             anime = create_anime(session, anime)
+
+            print(anime)
 
             anime_info_data = AnimeInfoCreate(
                 anime_id=anime.id,

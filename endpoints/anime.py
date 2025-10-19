@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Sequence, Union
+from typing import Sequence, Union, Optional
 
 from dotenv import load_dotenv
 
@@ -11,7 +11,8 @@ from sqlmodel import Session
 from dramatiq_actors.db_fill_actor import add_anime_to_db, add_anime_to_queue
 
 from db.crud import (
-    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_name, delete_anime
+    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_name, delete_anime,
+    popular_anime_get
 )
 from db.db import get_session
 from db.models import AnimeRead, Anime
@@ -68,6 +69,16 @@ async def get_all_anime(
     bulk_anime = get_anime_bulk(session)
     cache.set('anime', json.dumps(bulk_anime), ex=300)
     return bulk_anime[start:end]
+
+
+@router.get("/get-popular-anime")
+async def get_popular_anime(
+        limit: int,
+        next_page: Optional[str] = None,
+        prev_page: Optional[str] = None,
+        session: Session = Depends(get_session)
+):
+    return popular_anime_get(session, limit, next_page, prev_page)
 
 
 @router.get('/get-anime-by-name/{name}')

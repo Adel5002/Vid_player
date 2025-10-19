@@ -180,7 +180,7 @@ class Anime(SQLModel, table=True):
     russian: Optional[str] = None
     url: Optional[str] = None
     kind: Optional[str] = None
-    score: Optional[str] = None
+    score: Optional[float] = None
     status: Optional[str] = None
     episodes: Optional[int] = 0
     episodes_aired: Optional[int] = 0
@@ -216,7 +216,7 @@ class AnimeCreate(SQLModel):
     russian: Optional[str] = None
     url: Optional[str] = None
     kind: Optional[str] = None
-    score: Optional[str] = None
+    score: Optional[float] = None
     status: Optional[str] = None
     episodes: Optional[int] = 0
     episodes_aired: Optional[int] = 0
@@ -238,7 +238,7 @@ class AnimeRead(SQLModel):
     russian: Optional[str] = None
     url: Optional[str] = None
     kind: Optional[str] = None
-    score: Optional[str] = None
+    score: Optional[float] = None
     status: Optional[str] = None
     episodes: Optional[int] = 0
     episodes_aired: Optional[int] = 0
