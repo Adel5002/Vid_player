@@ -5,15 +5,12 @@ from typing import Sequence, Union, Optional
 
 from dotenv import load_dotenv
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
 from dramatiq_actors.db_fill_actor import add_anime_to_db, add_anime_to_queue
 
-from db.crud import (
-    get_anime_bulk, get_all_possible_anime, get_anime_by_shikimori_id, get_anime_by_name, delete_anime,
-    popular_anime_get
-)
+from db import crud
 from db.db import get_session
 from db.models import AnimeRead, Anime
 from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
@@ -21,7 +18,7 @@ from redis_cache import cache
 
 from utils.graphql_requests import search_for_anime
 from utils.validate_anime_dict import validate_anime_dict
-
+from validation_models.filters import anime_filter
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -35,19 +32,26 @@ SHIKIMORI_HEADERS = {
     "Accept": "application/json",
 }
 
-
-
 # ------------------ Routes ------------------
+
+@router.get("/get-all-genres")
+async def get_all_genres(session: Session = Depends(get_session)):
+    return crud.get_all_genres(session)
+
 @router.get("/get-all-possible-anime/", response_model=Sequence[AnimeRead])
 async def get_full_anime_list(session: Session = Depends(get_session)) -> Sequence[Anime]:
-    return get_all_possible_anime(session)
+    return crud.get_all_possible_anime(session)
 
+@router.get("/filter-anime", response_model=list[AnimeRead])
+async def filter_anime(
+    filters = Depends(anime_filter.AnimeFilter),
+    limit: int = Query(gt=1, le=200, default=20),
+    session: Session = Depends(get_session)
+) -> Sequence[Anime]:
+    return anime_filter.filter_anime(filters, limit, session)
 
-# TODO: Придумать функционал обновления инфы об аниме если апи такого не предоставляет, а можно это сделать перебором
-# TODO: аниме из моей бд и поиском их в бд шикимори
 @router.get("/get-all-anime")
 async def get_all_anime(
-        season: str = "",
         page: int = 1,
         limit: int = 50,
         session: Session = Depends(get_session)
@@ -66,10 +70,9 @@ async def get_all_anime(
     if db_is_ready is None or db_is_ready.decode("utf-8") != "true":
         return {"status": "db is not ready yet, please wait..."}
 
-    bulk_anime = get_anime_bulk(session)
+    bulk_anime = crud.get_anime_bulk(session)
     cache.set('anime', json.dumps(bulk_anime), ex=300)
     return bulk_anime[start:end]
-
 
 @router.get("/get-popular-anime")
 async def get_popular_anime(
@@ -78,13 +81,13 @@ async def get_popular_anime(
         prev_page: Optional[str] = None,
         session: Session = Depends(get_session)
 ):
-    return popular_anime_get(session, limit, next_page, prev_page)
+    return crud.popular_anime_get(session, limit, next_page, prev_page)
 
 
 @router.get('/get-anime-by-name/{name}')
 async def get_anime(name: str, session: Session = Depends(get_session)) -> Sequence[dict]:
     # 1️⃣ Пытаемся найти в БД
-    from_db = get_anime_by_name(session, name)
+    from_db = crud.get_anime_by_name(session, name)
 
     # 2️⃣ Собираем все известные названия из БД
     db_names = set()
@@ -136,7 +139,7 @@ async def get_anime(name: str, session: Session = Depends(get_session)) -> Seque
 
 @router.get('/watch-anime/{anime_id}')
 async def watch_anime(anime_id: int, session: Session = Depends(get_session)) -> dict:
-    anime_info = get_anime_by_shikimori_id(anime_id, session)
+    anime_info = crud.get_anime_by_shikimori_id(anime_id, session)
 
     if not anime_info:
         anime = await search_for_anime(str(anime_id))
@@ -147,4 +150,4 @@ async def watch_anime(anime_id: int, session: Session = Depends(get_session)) ->
 
 @router.delete("/delete-anime/{anime_id}")
 async def delete_anime_by_id(anime_id: int, session: Session = Depends(get_session)):
-    return delete_anime(session, anime_id)
+    return crud.delete_anime(session, anime_id)

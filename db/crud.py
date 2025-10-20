@@ -603,9 +603,11 @@ def create_genre(session: Session, genre_data: GenreCreate) -> Optional[Genre]:
     session.refresh(genre)
     return genre
 
-
 def read_genre(session: Session, genre_id: int) -> Optional[Genre]:
     return session.get(Genre, genre_id)
+
+def get_all_genres(session: Session) -> Sequence[Genre]:
+    return session.scalars(select(Genre)).all()
 
 
 # ------------------ Anime Poster ------------------
