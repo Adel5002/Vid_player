@@ -127,4 +127,4 @@ async def search_for_anime(anime_id: str = "", anime_name: str = "", limit: int 
 
 if __name__ == "__main__":
     data = asyncio.run(get_anime_list(limit=1))
-    print(type(data["animes"][0]["score"]))
+    print(data["animes"])

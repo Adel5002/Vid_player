@@ -13,8 +13,14 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    const success = await loginUser(username, password);
-    success ? navigate("/") : setError("Неверный логин или пароль");
+
+    const result = await loginUser(username, password);
+
+    if (result.success) {
+      navigate("/");
+    } else {
+      setError(result.message);
+    }
   };
 
   return (

@@ -16,26 +16,30 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = async (username, password) => {
     try {
-        // URLSearchParams формирует правильный формат
-        const formData = new URLSearchParams();
-        formData.append("username", username);
-        formData.append("password", password);
+      const formData = new URLSearchParams();
+      formData.append("username", username);
+      formData.append("password", password);
 
-        const userInfo = await api.get(`/users/get-user-by-name/${username}`);
-        const { data } = await api.post("/reg/refresh-token", formData, {
+      const userInfo = await api.get(`/users/get-user-by-name/${username}`);
+      const { data } = await api.post("/reg/refresh-token", formData, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        });
+      });
 
-        setAuthTokens(data);
-        setUser(jwtDecode(data.access_token));
-        localStorage.setItem("authTokens", JSON.stringify(data));
-        localStorage.setItem("user", JSON.stringify(userInfo["data"]));
-        return true;
+      setAuthTokens(data);
+      setUser(jwtDecode(data.access_token));
+      localStorage.setItem("authTokens", JSON.stringify(data));
+      localStorage.setItem("user", JSON.stringify(userInfo["data"]));
+      return { success: true };
     } catch (error) {
-        console.error("Login failed:", error.response?.data || error);
-        return false;
+      console.error("Login failed:", error.response?.data || error);
+      const status = error.response?.status;
+      const message =
+        status === 429
+          ? "Слишком много попыток входа. Попробуйте позже."
+          : error.response?.data?.detail || "Неверный логин или пароль";
+      return { success: false, message };
     }
-    };
+  };
 
   const logoutUser = () => {
     setAuthTokens(null);

@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from pydantic import model_validator, field_serializer
+from pydantic import field_serializer, EmailStr
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, JSON
 from sqlalchemy.types import TypeDecorator
@@ -9,7 +9,7 @@ from sqlalchemy.types import TypeDecorator
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
-    email: str = Field(index=True, unique=True)
+    email: EmailStr = Field(index=True, unique=True)
     hashed_password: str
     is_admin: Optional[bool] = Field(default=False)
     disabled: Optional[bool] = Field(default=True)
@@ -25,8 +25,8 @@ class User(SQLModel, table=True):
 
 class UserCreate(SQLModel):
     username: str
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8)
     is_admin: Optional[bool] = Field(default=False)
     disabled: Optional[bool] = Field(default=True)
     is_verified: Optional[bool] = Field(default=False)
@@ -35,7 +35,7 @@ class UserCreate(SQLModel):
 class UserRead(SQLModel):
     id: int
     username: str
-    email: str
+    email: EmailStr
     is_admin: bool
     disabled: bool
     is_verified: bool
@@ -55,8 +55,8 @@ class UserFrontendRead(SQLModel):
 
 class UserUpdate(SQLModel):
     username: Optional[str] = Field(default=None)
-    email: Optional[str] = Field(default=None)
-    password: Optional[str] = Field(default=None)
+    email: Optional[EmailStr] = Field(default=None)
+    password: Optional[str] = Field(default=None, min_length=8)
     is_admin: Optional[bool] = Field(default=None)
     disabled: Optional[bool] = Field(default=True)
     is_verified: Optional[bool] = Field(default=None)

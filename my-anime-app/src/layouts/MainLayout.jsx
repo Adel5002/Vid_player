@@ -56,15 +56,12 @@ const MainLayout = () => {
 
           {/* 🧭 Навигация (Desktop) */}
           <nav className="hidden sm:flex items-center space-x-10 text-gray-300 font-medium">
-            <button onClick={() => navigate("/")} className="hover:text-blue-400 transition">
+            <Link to="/" className="hover:text-blue-400 transition">
               Главная
-            </button>
+            </Link>
             <Link to="/trending" className="hover:text-blue-400 transition">
               Популярное
             </Link>
-            <button onClick={() => navigate("/genres")} className="hover:text-blue-400 transition">
-              Жанры
-            </button>
           </nav>
 
           {/* 👤 ПРОФИЛЬ / ЛОГИН */}

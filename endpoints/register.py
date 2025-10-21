@@ -1,8 +1,9 @@
+import asyncio
 import os
 from datetime import timedelta
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -71,36 +72,73 @@ async def login_for_access_token(refresh_token: str) -> JSONResponse:
     })
 
 
+ATTEMPT_LIMIT = 5       # макс. попыток
+WINDOW = 60             # окно 60 с
+BLOCK_TIME = 60 * 5     # блок на 5 минут
+
 @router.post("/refresh-token")
-def get_new_refresh_token(
+async def get_new_refresh_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session)
 ) -> JSONResponse:
+    ip = request.client.host
+    key = f"login_attempts:{ip}"
+
+    # Проверяем, не заблокирован ли IP
+    if cache.get(f"blocked:{ip}"):
+        raise HTTPException(
+            status_code=429,
+            detail="Слишком много попыток входа. Попробуйте позже."
+        )
+
+    # Увеличиваем счётчик
+    attempts = cache.incr(key)
+    if attempts == 1:
+        cache.expire(key, WINDOW)
+
+    # Если превышен лимит — баним
+    if attempts > ATTEMPT_LIMIT:
+        cache.setex(f"blocked:{ip}", BLOCK_TIME, "1")
+        raise HTTPException(
+            status_code=429,
+            detail="Слишком много попыток входа. Попробуйте позже."
+        )
+
+    # Проверяем пользователя
     user = authenticate_user(form_data.username, form_data.password, session)
     if not user:
+        # искусственная задержка при ошибке
+        if attempts > 2:
+            await asyncio.sleep(2 * (attempts - 2))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
-    elif not user.is_verified:
+
+    if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User is not verified yet",
         )
 
-    payload = {"sub": user.username}
+    # Успешный вход — сбрасываем счётчик
+    cache.delete(key)
 
+    payload = {"sub": user.username}
     access_token = create_access_token(
         data=payload, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     refresh_token = create_refresh_token(
         data=payload, expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     )
-
-    cache.setex(f"refresh:{user.username}", timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS), refresh_token)
+    cache.setex(
+        f"refresh:{user.username}",
+        timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        refresh_token
+    )
 
     user.disabled = False
-
     session.add(user)
     session.commit()
     session.refresh(user)
