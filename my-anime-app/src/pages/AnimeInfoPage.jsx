@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, forwardRef } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import { api } from "../api/axios";
+import RecommendationsBlock from "../components/Recommendations"
 
 // Swiper
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -34,7 +35,6 @@ const ArrowButton = forwardRef(({ side = "left" }, ref) => (
 ArrowButton.displayName = "ArrowButton";
 
 const AnimeInfoPage = () => {
-  const apiUrl = import.meta.env.VITE_API_URL;
   const { id } = useParams();
   const [anime, setAnime] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,7 @@ const AnimeInfoPage = () => {
   useEffect(() => {
     const fetchAnime = async () => {
       try {
-        const res = await axios.get(`${apiUrl}/anime/watch-anime/${id}`);
+        const res = await api.get(`/anime/${id}`);
         setAnime(res.data);
       } catch (e) {
         console.error(e);
@@ -251,6 +251,12 @@ const AnimeInfoPage = () => {
           ) : (
             <p className="text-gray-500 italic">Нет скриншотов</p>
           )}
+        </div>
+        <div className="-mx-2 sm:mx-0">
+          <h2 className="text-xl sm:text-3xl font-bold mb-6 border-l-4 border-emerald-500 pl-3">
+            💡 Рекомендации
+          </h2>
+          <RecommendationsBlock animeId={anime.shikimori_id} />
         </div>
       </div>
     </div>

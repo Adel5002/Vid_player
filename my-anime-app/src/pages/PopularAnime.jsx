@@ -18,7 +18,7 @@ const PopularAnime = () => {
       if (append) setFetchingMore(true);
       else setLoading(true);
 
-      const res = await api.get("/anime/get-popular-anime", {
+      const res = await api.get("/anime/popular", {
         params: {
           limit: LIMIT,
           next_page: page || undefined,

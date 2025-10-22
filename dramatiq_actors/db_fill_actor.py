@@ -16,6 +16,7 @@ from dramatiq_actors import dramatiq_settings
 from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
 from redis_cache import cache
 from utils.graphql_requests import get_anime_list
+from utils.recommendations import clear_recommendation_cache
 
 
 @dramatiq.actor(queue_name="heavy_tasks")
@@ -53,6 +54,7 @@ async def add_anime_to_queue(animes: list[dict]) -> None:
 
 @dramatiq.actor(max_retries=5, min_backoff=1000, max_backoff=30000, queue_name="heavy_tasks")
 async def add_anime_to_db(anime_data: dict) -> None:
+    clear_recommendation_cache()
     """Актёр: добавляет 1 аниме в БД."""
     try:
         with Session(engine) as session:

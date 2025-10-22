@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { fetchAllAnime, fetchAnimeByName } from "../api/anime";
+import { fetchAllAnime } from "../api/anime";
 import AnimeGrid from "../components/AnimeGrid";
-import AnimeList from "../components/AnimeList";
 
 const AnimeListPage = () => {
   const [animeList, setAnimeList] = useState([]);

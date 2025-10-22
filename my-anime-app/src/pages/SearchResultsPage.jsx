@@ -1,12 +1,11 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../api/axios";
 
 const SearchResultsPage = () => {
   const { term } = useParams();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const apiUrl = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,7 +14,7 @@ const SearchResultsPage = () => {
     
     const timer = setTimeout(async () => {
       try {
-        const response = await axios.get(`${apiUrl}/anime/get-anime-by-name/${term}`);
+        const response = await api.get(`/anime/by-name/${term}`);
         setResults(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error(err);
@@ -26,7 +25,7 @@ const SearchResultsPage = () => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [term, apiUrl]);
+  }, [term]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

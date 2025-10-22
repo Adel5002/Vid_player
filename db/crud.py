@@ -236,7 +236,7 @@ def get_anime_by_name(session: Session, name: str) -> Sequence[dict]:
     return result
 
 from sqlalchemy import case, select, desc, func, cast, Integer, and_, asc, Numeric
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, contains_eager
 import datetime
 from typing import Sequence
 
@@ -254,7 +254,12 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
 
     anime = session.scalars(
         select(Anime)
-        .where(col(Anime.season).contains(current_year))
+        .join(AnimeInfo)
+        .where(
+            Anime.season.contains(str(current_year)),
+            AnimeInfo.kodik_player_url != "none",
+            Anime.score > 0
+        )
         .order_by(status_order, desc(Anime.score))
         .options(
             selectinload(Anime.info),

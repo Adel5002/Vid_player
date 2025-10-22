@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Search } from "lucide-react";
-import axios from "axios";
+import { api } from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
 const AnimeSearchBar = () => {
   const [term, setTerm] = useState("");
   const [results, setResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const apiUrl = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,7 +17,7 @@ const AnimeSearchBar = () => {
 
     const fetchResults = async () => {
       try {
-        const response = await axios.get(`${apiUrl}/anime/get-anime-by-name/${term}`);
+        const response = await api.get(`/anime/by-name/${term}`);
         const data = Array.isArray(response.data) ? response.data : [];
         setResults(data);
         setShowDropdown(true);
@@ -30,7 +29,7 @@ const AnimeSearchBar = () => {
 
     const delay = setTimeout(fetchResults, 300);
     return () => clearTimeout(delay);
-  }, [term, apiUrl]);
+  }, [term]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

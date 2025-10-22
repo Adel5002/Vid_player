@@ -56,7 +56,7 @@ const AnimeGrid = ({ groupedByStatus, lastAnimeRef }) => {
   const searchWith = async (payload) => {
     setLoading(true);
     try {
-      const res = await api.get("/anime/filter-anime", {
+      const res = await api.get("/anime/filters", {
         params: {
           limit: 100,
           genre: payload.selectedGenre || undefined,
@@ -89,7 +89,7 @@ const AnimeGrid = ({ groupedByStatus, lastAnimeRef }) => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/anime/get-all-genres");
+        const res = await api.get("/anime/genres");
         const genres = res.data.map((g) => g.russian);
         setFilters((prev) => ({ ...prev, genre: genres }));
       } catch (e) {

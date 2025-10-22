@@ -5,8 +5,8 @@ from typing import Sequence, Union, Optional
 
 from dotenv import load_dotenv
 
-from fastapi import APIRouter, Depends, Query
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlmodel import Session, select
 
 from dramatiq_actors.db_fill_actor import add_anime_to_db, add_anime_to_queue
 
@@ -17,6 +17,7 @@ from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
 from redis_cache import cache
 
 from utils.graphql_requests import search_for_anime
+from utils.recommendations import get_recommendations
 from utils.validate_anime_dict import validate_anime_dict
 from validation_models.filters import anime_filter
 
@@ -34,7 +35,7 @@ SHIKIMORI_HEADERS = {
 
 # ------------------ Routes ------------------
 
-@router.get("/get-all-genres")
+@router.get("/genres")
 async def get_all_genres(session: Session = Depends(get_session)):
     return crud.get_all_genres(session)
 
@@ -42,7 +43,7 @@ async def get_all_genres(session: Session = Depends(get_session)):
 async def get_full_anime_list(session: Session = Depends(get_session)) -> Sequence[Anime]:
     return crud.get_all_possible_anime(session)
 
-@router.get("/filter-anime", response_model=list[AnimeRead])
+@router.get("/filters", response_model=list[AnimeRead])
 async def filter_anime(
     filters = Depends(anime_filter.AnimeFilter),
     limit: int = Query(gt=1, le=200, default=20),
@@ -50,7 +51,7 @@ async def filter_anime(
 ) -> Sequence[Anime]:
     return anime_filter.filter_anime(filters, limit, session)
 
-@router.get("/get-all-anime")
+@router.get("/all")
 async def get_all_anime(
         page: int = 1,
         limit: int = 50,
@@ -74,7 +75,7 @@ async def get_all_anime(
     cache.set('anime', json.dumps(bulk_anime), ex=300)
     return bulk_anime[start:end]
 
-@router.get("/get-popular-anime")
+@router.get("/popular")
 async def get_popular_anime(
         limit: int,
         next_page: Optional[str] = None,
@@ -84,7 +85,7 @@ async def get_popular_anime(
     return crud.popular_anime_get(session, limit, next_page, prev_page)
 
 
-@router.get('/get-anime-by-name/{name}')
+@router.get('/by-name/{name}')
 async def get_anime(name: str, session: Session = Depends(get_session)) -> Sequence[dict]:
     # 1️⃣ Пытаемся найти в БД
     from_db = crud.get_anime_by_name(session, name)
@@ -135,19 +136,28 @@ async def get_anime(name: str, session: Session = Depends(get_session)) -> Seque
     # 6️⃣ Возвращаем объединённый результат
     return [*from_db, *from_api]
 
-
-
-@router.get('/watch-anime/{anime_id}')
+@router.get('/{anime_id}')
 async def watch_anime(anime_id: int, session: Session = Depends(get_session)) -> dict:
     anime_info = crud.get_anime_by_shikimori_id(anime_id, session)
 
     if not anime_info:
+        # TODO: Обработать ситуацию когда приходит пустой список
         anime = await search_for_anime(str(anime_id))
         anime[0]["kodik_player_url"] = await get_player_by_id(anime[0].get("id", "none"))
         add_anime_to_db.send(anime[0])
         return validate_anime_dict(anime[0]).model_dump()
     return anime_info
 
-@router.delete("/delete-anime/{anime_id}")
+@router.get("/{anime_id}/recommendations")
+def recommendations(anime_id: int, session: Session = Depends(get_session)):
+    anime = session.scalar(select(Anime).where(Anime.shikimori_id == anime_id))
+    if not anime:
+        raise HTTPException(status_code=404, detail="Anime not found")
+
+    recs = get_recommendations(anime_id, session)
+    return {"anime_id": anime_id, "recommendations": recs}
+
+@router.delete("/delete/{anime_id}")
 async def delete_anime_by_id(anime_id: int, session: Session = Depends(get_session)):
     return crud.delete_anime(session, anime_id)
+
