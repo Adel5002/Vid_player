@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, forwardRef } from "react";
 import { useParams } from "react-router-dom";
-import { api } from "../api/axios";
-import RecommendationsBlock from "../components/Recommendations"
+import { animeById } from "../api/request_to_api"; // ✅ импорт централизованной функции
+import RecommendationsBlock from "../components/Recommendations";
+import KodikPlayer from "../components/KodikPlayer";
 
 // Swiper
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -13,9 +14,7 @@ import "swiper/css/free-mode";
 // Icons
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// 🎥 Kodik Player
-import KodikPlayer from "../components/KodikPlayer";
-
+// 🔘 Универсальная кнопка
 const ArrowButton = forwardRef(({ side = "left" }, ref) => (
   <button
     ref={ref}
@@ -47,10 +46,10 @@ const AnimeInfoPage = () => {
   useEffect(() => {
     const fetchAnime = async () => {
       try {
-        const res = await api.get(`/anime/${id}`);
-        setAnime(res.data);
+        const { data } = await animeById(id); // ✅ централизованный вызов
+        setAnime(data);
       } catch (e) {
-        console.error(e);
+        console.error("Ошибка загрузки аниме:", e);
       } finally {
         setLoading(false);
       }
@@ -65,9 +64,8 @@ const AnimeInfoPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0f1c] via-[#0f0f1f] to-black text-white">
-      {/* Убираем ограничения по ширине для мобилок */}
       <div className="mx-auto px-2 sm:px-6 py-10 space-y-12 max-w-6xl">
-        {/* 🏮 Верхний блок - растягиваем на мобилках */}
+        {/* 🏮 Верхний блок */}
         <div className="flex flex-col md:flex-row gap-8 bg-white/5 rounded-2xl p-3 sm:p-8 shadow-2xl backdrop-blur-lg -mx-2 sm:mx-0">
           {/* Постер */}
           <img
@@ -103,7 +101,7 @@ const AnimeInfoPage = () => {
             </div>
 
             {/* 🎭 Жанры */}
-            {anime.info.genres?.length > 0 && (
+            {anime.info?.genres?.length > 0 && (
               <div className="mt-6">
                 <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                   {anime.info.genres.map((genre) => (
@@ -135,7 +133,7 @@ const AnimeInfoPage = () => {
           </div>
         </div>
 
-        {/* 🎥 Смотреть аниме - ШИРОКИЙ ПЛЕЕР ДЛЯ МОБИЛОК */}
+        {/* 🎥 Плеер Kodik */}
         <div className="-mx-2 sm:mx-0">
           <h2 className="text-xl sm:text-3xl font-bold mb-6 border-l-4 border-rose-500 pl-3">
             🎥 Смотреть аниме
@@ -149,7 +147,7 @@ const AnimeInfoPage = () => {
           )}
         </div>
 
-        {/* 🎬 Трейлеры с улучшенной прокруткой */}
+        {/* 🎬 Трейлеры */}
         <div className="-mx-2 sm:mx-0">
           <h2 className="text-xl sm:text-3xl font-bold mb-6 border-l-4 border-pink-500 pl-3">
             🎬 Трейлеры
@@ -162,11 +160,7 @@ const AnimeInfoPage = () => {
                 modules={[Navigation, FreeMode]}
                 spaceBetween={10}
                 slidesPerView={1.2}
-                freeMode={{
-                  enabled: true,
-                  momentum: true,
-                  momentumBounce: false,
-                }}
+                freeMode={{ enabled: true, momentum: true, momentumBounce: false }}
                 breakpoints={{
                   480: { slidesPerView: 1.5 },
                   640: { slidesPerView: 2 },
@@ -204,7 +198,7 @@ const AnimeInfoPage = () => {
           )}
         </div>
 
-        {/* 🖼 Скриншоты с улучшенной прокруткой */}
+        {/* 🖼 Скриншоты */}
         <div className="-mx-2 sm:mx-0">
           <h2 className="text-xl sm:text-3xl font-bold mb-6 border-l-4 border-purple-500 pl-3">
             🖼 Скриншоты
@@ -217,11 +211,7 @@ const AnimeInfoPage = () => {
                 modules={[Navigation, FreeMode]}
                 spaceBetween={8}
                 slidesPerView={1.3}
-                freeMode={{
-                  enabled: true,
-                  momentum: true,
-                  momentumBounce: false,
-                }}
+                freeMode={{ enabled: true, momentum: true, momentumBounce: false }}
                 breakpoints={{
                   480: { slidesPerView: 2 },
                   640: { slidesPerView: 3 },
@@ -252,6 +242,8 @@ const AnimeInfoPage = () => {
             <p className="text-gray-500 italic">Нет скриншотов</p>
           )}
         </div>
+
+        {/* 💡 Рекомендации */}
         <div className="-mx-2 sm:mx-0">
           <h2 className="text-xl sm:text-3xl font-bold mb-6 border-l-4 border-emerald-500 pl-3">
             💡 Рекомендации

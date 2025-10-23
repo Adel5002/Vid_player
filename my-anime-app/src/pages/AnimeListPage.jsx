@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { fetchAllAnime } from "../api/anime";
+import { fetchAllAnime } from "../api/request_to_api";
 import AnimeGrid from "../components/AnimeGrid";
 
 const AnimeListPage = () => {
@@ -31,7 +31,7 @@ const AnimeListPage = () => {
     const loadAnime = async () => {
       setLoading(true);
       try {
-        const response = await fetchAllAnime(page);
+        const response = await fetchAllAnime(page)
         if (response.data?.status) {
           setDbNotReady(true);
           setHasMore(false);

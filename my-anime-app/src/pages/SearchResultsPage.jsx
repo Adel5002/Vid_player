@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { api } from "../api/axios";
+import { animeByName } from "../api/request_to_api"; // ✅ используем централизованный API
 
 const SearchResultsPage = () => {
   const { term } = useParams();
@@ -11,13 +11,13 @@ const SearchResultsPage = () => {
   useEffect(() => {
     if (!term) return;
     setLoading(true);
-    
+
     const timer = setTimeout(async () => {
       try {
-        const response = await api.get(`/anime/by-name/${term}`);
-        setResults(Array.isArray(response.data) ? response.data : []);
+        const { data } = await animeByName(term); // ✅ заменили api.get на централизованный вызов
+        setResults(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error(err);
+        console.error("Ошибка при поиске:", err);
         setResults([]);
       } finally {
         setLoading(false);
@@ -32,7 +32,7 @@ const SearchResultsPage = () => {
       {loading && (
         <div className="text-center text-white text-lg">Загрузка...</div>
       )}
-      
+
       {!loading && results.length === 0 && term && (
         <div className="text-center text-gray-400 text-lg">
           По запросу "{term}" ничего не найдено
@@ -87,7 +87,9 @@ const SearchResultsPage = () => {
                 <p
                   className="text-gray-300 text-sm line-clamp-3 leading-relaxed"
                   dangerouslySetInnerHTML={{
-                    __html: anime.info?.description_html || "Описание отсутствует",
+                    __html:
+                      anime.info?.description_html ||
+                      "Описание отсутствует",
                   }}
                 />
               </div>
@@ -104,7 +106,11 @@ const SearchResultsPage = () => {
                 </div>
                 <div className="flex items-center gap-1 text-sm text-gray-400">
                   <span>📅</span>
-                  <span>{anime.aired_on?.date ? new Date(anime.aired_on.date).getFullYear() : "—"}</span>
+                  <span>
+                    {anime.aired_on?.date
+                      ? new Date(anime.aired_on.date).getFullYear()
+                      : "—"}
+                  </span>
                 </div>
               </div>
             </div>

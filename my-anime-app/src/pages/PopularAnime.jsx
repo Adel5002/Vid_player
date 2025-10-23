@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { api } from "../api/axios";
+import { fetchPopularAnime } from "../api/request_to_api"; // ✅ централизованный импорт
 import AnimeCard from "../components/AnimeCard";
 import { motion } from "framer-motion";
 
@@ -12,20 +12,13 @@ const PopularAnime = () => {
 
   const LIMIT = 20;
 
-  // 🧠 Функция для загрузки данных
+  // 🧠 Централизованная загрузка данных
   const fetchAnime = async (page = null, append = false) => {
     try {
       if (append) setFetchingMore(true);
       else setLoading(true);
 
-      const res = await api.get("/anime/popular", {
-        params: {
-          limit: LIMIT,
-          next_page: page || undefined,
-        },
-      });
-
-      const data = res.data;
+      const { data } = await fetchPopularAnime(LIMIT, page);
       if (!data) return;
 
       setAnimeList((prev) =>
@@ -41,12 +34,12 @@ const PopularAnime = () => {
     }
   };
 
-  // 🪄 При первом рендере — загрузить первую страницу
+  // 🪄 Первая загрузка
   useEffect(() => {
     fetchAnime();
   }, []);
 
-  // 📜 IntersectionObserver для бесконечного скролла
+  // 📜 Бесконечный скролл
   const lastElementRef = useCallback(
     (node) => {
       if (fetchingMore || loading) return;
@@ -79,7 +72,7 @@ const PopularAnime = () => {
         </p>
       </motion.div>
 
-      {/* ⏳ Загрузка первой страницы */}
+      {/* ⏳ Загрузка */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -91,7 +84,7 @@ const PopularAnime = () => {
         </div>
       ) : (
         <>
-          {/* 🎴 Сетка карточек */}
+          {/* 🎴 Карточки */}
           <motion.div
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6"
             initial={{ opacity: 0 }}
@@ -111,7 +104,7 @@ const PopularAnime = () => {
             })}
           </motion.div>
 
-          {/* ⚙️ Идёт подгрузка */}
+          {/* ⚙️ Подгрузка */}
           {fetchingMore && (
             <div className="flex justify-center py-8 text-gray-400 animate-pulse">
               Загрузка следующей страницы...

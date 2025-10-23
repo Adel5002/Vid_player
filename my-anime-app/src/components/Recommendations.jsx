@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, forwardRef } from "react";
-import { api } from "../api/axios";
+import { animeRecommendations, animeById } from "../api/request_to_api";
 
 // Swiper
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -11,7 +11,6 @@ import "swiper/css/free-mode";
 // Icons
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// 🎯 Универсальная кнопка со стрелкой
 const ArrowButton = forwardRef(({ side = "left" }, ref) => (
   <button
     ref={ref}
@@ -30,12 +29,6 @@ const ArrowButton = forwardRef(({ side = "left" }, ref) => (
 ));
 ArrowButton.displayName = "ArrowButton";
 
-/**
- * 💡 RecommendationsBlock
- * Отображает похожие аниме с постерами, оценками и плавной прокруткой.
- *
- * @param {number} animeId - ID текущего аниме (shikimori_id)
- */
 const RecommendationsBlock = ({ animeId }) => {
   const [recs, setRecs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,13 +38,13 @@ const RecommendationsBlock = ({ animeId }) => {
   useEffect(() => {
     const fetchRecommendations = async () => {
       try {
-        const { data } = await api.get(`/anime/${animeId}/recommendations`);
+        const { data } = await animeRecommendations(animeId);
         const ids = data.recommendations || [];
         const detailed = [];
 
         for (const id of ids) {
           try {
-            const res = await api.get(`/anime/${id}`);
+            const res = await animeById(id);
             detailed.push(res.data);
           } catch (err) {
             console.warn("⚠️ Ошибка загрузки аниме:", id, err);
@@ -70,14 +63,10 @@ const RecommendationsBlock = ({ animeId }) => {
   }, [animeId]);
 
   if (loading)
-    return (
-      <p className="text-gray-400 italic">⏳ Загрузка рекомендаций...</p>
-    );
+    return <p className="text-gray-400 italic">⏳ Загрузка рекомендаций...</p>;
 
   if (!recs.length)
-    return (
-      <p className="text-gray-500 italic">😔 Рекомендации отсутствуют</p>
-    );
+    return <p className="text-gray-500 italic">😔 Рекомендации отсутствуют</p>;
 
   return (
     <div className="relative">

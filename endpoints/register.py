@@ -3,7 +3,7 @@ import os
 from datetime import timedelta
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -233,4 +233,7 @@ async def verify_email(token: str, session: Session = Depends(get_session)):
         status_code=302
     )
 
-
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("user")
+    return {"message": "Logged out"}

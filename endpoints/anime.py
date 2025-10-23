@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from typing import Sequence, Union, Optional
@@ -149,7 +148,10 @@ async def watch_anime(anime_id: int, session: Session = Depends(get_session)) ->
     return anime_info
 
 @router.get("/{anime_id}/recommendations")
-def recommendations(anime_id: int, session: Session = Depends(get_session)):
+def recommendations(
+        anime_id: int,
+        session: Session = Depends(get_session),
+):
     anime = session.scalar(select(Anime).where(Anime.shikimori_id == anime_id))
     if not anime:
         raise HTTPException(status_code=404, detail="Anime not found")

@@ -1,9 +1,16 @@
 import React, { useEffect, useRef } from "react";
-import { api } from "../api/axios";
+import Cookies from "js-cookie";
+import {
+  getWatchAnimeByProfile,
+  createWatchAnime,
+  updateWatchAnime,
+} from "../api/request_to_api";
 
 const KodikPlayer = ({ src, anime_id }) => {
   const iframeRef = useRef(null);
-  const profile = JSON.parse(localStorage.getItem("user"))?.profile;
+
+  const user = Cookies.get("user");
+  const profile = user ? JSON.parse(user).profile : null;
 
   useEffect(() => {
     if (!src || !profile) return;
@@ -12,18 +19,13 @@ const KodikPlayer = ({ src, anime_id }) => {
 
     let animeData = null;
     let timelineUpdate = 0;
-
     const kodik = iframe.contentWindow;
 
-    // Загружаем данные аниме и после загрузки iframe — переключаем серию
     const handleIframeLoad = async () => {
       try {
-        const res = await api.get(
-          `/watch-list/get-watch-anime-by-profile-id/${profile}/${anime_id}`
-        );
+        const res = await getWatchAnimeByProfile(profile, anime_id);
         animeData = res.data;
 
-        // Немного ждём, чтобы плеер успел инициализироваться
         setTimeout(() => {
           if (!animeData) return;
           kodik.postMessage(
@@ -44,11 +46,11 @@ const KodikPlayer = ({ src, anime_id }) => {
       }
     };
 
-    handleIframeLoad()
+    handleIframeLoad();
 
     const kodikMessageListener = async (event) => {
       if (event.data.key === "kodik_player_current_episode") {
-        let requestBody = {
+        const requestBody = {
           seek: timelineUpdate,
           episode: event.data.value["episode"],
           season: event.data.value["season"],
@@ -58,18 +60,13 @@ const KodikPlayer = ({ src, anime_id }) => {
           is_disabled: false,
         };
 
-        const getAnimeWatch = await api
-          .get(`/watch-list/get-watch-anime-by-profile-id/${profile}/${anime_id}`)
-          .catch(() => null);
+        const getAnimeWatch = await getWatchAnimeByProfile(profile, anime_id).catch(() => null);
 
         try {
-          await api.post("/watch-list/create-watch-anime/", requestBody);
+          await createWatchAnime(requestBody);
         } catch (error) {
           if (getAnimeWatch) {
-            await api.patch(
-              `/watch-list/update-watch-anime/${getAnimeWatch.data.id}`,
-              requestBody
-            );
+            await updateWatchAnime(getAnimeWatch.data.id, requestBody);
           }
         }
       }
@@ -93,19 +90,12 @@ const KodikPlayer = ({ src, anime_id }) => {
 
       if (event.data.key === "kodik_player_pause") {
         console.log("⏸ Пауза на:", timelineUpdate);
-        let requestBody = {
-          seek: timelineUpdate,
-        };
+        const requestBody = { seek: timelineUpdate };
 
-        const getAnimeWatch = await api
-          .get(`/watch-list/get-watch-anime-by-profile-id/${profile}/${anime_id}`)
-          .catch(() => null);
+        const getAnimeWatch = await getWatchAnimeByProfile(profile, anime_id).catch(() => null);
 
         try {
-          await api.patch(
-            `/watch-list/update-watch-anime/${getAnimeWatch.data.id}`,
-            requestBody
-          );
+          await updateWatchAnime(getAnimeWatch.data.id, requestBody);
         } catch (error) {
           console.log(error);
         }

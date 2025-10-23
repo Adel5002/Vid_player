@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import AnimeCard from "./AnimeCard";
-import { api } from "../api/axios";
+import { animeFilters, animeGenres } from "../api/request_to_api";
 import YearRangeSlider from "./YearRangeSlider"
 
 const DEFAULTS = {
@@ -55,8 +55,7 @@ const AnimeGrid = ({ groupedByStatus, lastAnimeRef }) => {
 
   const searchWith = async (payload) => {
     setLoading(true);
-    try {
-      const res = await api.get("/anime/filters", {
+    const params = {
         params: {
           limit: 100,
           genre: payload.selectedGenre || undefined,
@@ -65,7 +64,9 @@ const AnimeGrid = ({ groupedByStatus, lastAnimeRef }) => {
           year_start: payload.yearStart,
           year_end: payload.yearEnd,
         },
-      });
+      }
+    try {
+      const res = await animeFilters(params)
       setFilteredList(res.data);
     } catch (e) {
       console.error("Ошибка фильтрации:", e);
@@ -89,7 +90,7 @@ const AnimeGrid = ({ groupedByStatus, lastAnimeRef }) => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/anime/genres");
+        const res = await animeGenres()
         const genres = res.data.map((g) => g.russian);
         setFilters((prev) => ({ ...prev, genre: genres }));
       } catch (e) {

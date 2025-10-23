@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Search } from "lucide-react";
-import { api } from "../api/axios";
+import { animeByName } from "../api/request_to_api";
 import { useNavigate } from "react-router-dom";
 
 const AnimeSearchBar = () => {
@@ -17,7 +17,7 @@ const AnimeSearchBar = () => {
 
     const fetchResults = async () => {
       try {
-        const response = await api.get(`/anime/by-name/${term}`);
+        const response = await animeByName(term)
         const data = Array.isArray(response.data) ? response.data : [];
         setResults(data);
         setShowDropdown(true);

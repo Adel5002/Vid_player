@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
-import { api } from "../api/axios";
+import { login, logout, refresh, userByName } from "../api/request_to_api";
+import Cookies from "js-cookie";
 
 export const AuthContext = createContext();
 
@@ -19,16 +20,19 @@ export const AuthProvider = ({ children }) => {
       const formData = new URLSearchParams();
       formData.append("username", username);
       formData.append("password", password);
-
-      const userInfo = await api.get(`/users/get-user-by-name/${username}`);
-      const { data } = await api.post("/reg/refresh-token", formData, {
+      const headers = {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
+      }
 
+      console.log()
+
+      const userInfo = await userByName(username)
+      const { data } = await login(formData, headers)
+      
       setAuthTokens(data);
       setUser(jwtDecode(data.access_token));
       localStorage.setItem("authTokens", JSON.stringify(data));
-      localStorage.setItem("user", JSON.stringify(userInfo["data"]));
+      Cookies.set("user", JSON.stringify(userInfo["data"]), { path: "/" });
       return { success: true };
     } catch (error) {
       console.error("Login failed:", error.response?.data || error);
@@ -41,19 +45,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logoutUser = () => {
-    setAuthTokens(null);
-    setUser(null);
-    localStorage.removeItem("authTokens");
-    localStorage.removeItem("user");
+  const logoutUser = async () => {
+    try {
+      await logout()
+    } catch (e) {
+      console.warn("Logout API failed:", e);
+    } finally {
+      setAuthTokens(null);
+      setUser(null);
+      localStorage.removeItem("authTokens");
+       window.location.href = "/";
+    }
   };
 
   const updateToken = async () => {
-    if (!authTokens?.refresh_token) return logoutUser();
-    try {
-      const { data } = await api.post("/reg/access-token", null, {params: {
+    if (!authTokens?.refresh_token) return await logoutUser();
+    const params = {params: {
         refresh_token: authTokens.refresh_token,
-      }});
+      }}
+    try {
+      const { data } = await refresh(params)
 
       const newTokens = {
         ...authTokens,

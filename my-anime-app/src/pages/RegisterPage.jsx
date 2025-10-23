@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/axios";
+import { register } from "../api/request_to_api";
 import { motion } from "framer-motion";
 
 const RegisterPage = () => {
@@ -14,8 +14,7 @@ const RegisterPage = () => {
     e.preventDefault();
     setError("");
     try {
-      await api.post("/reg/register", { username, email, password });
-      navigate("/check-email");
+      await register(username, email, password, navigate );
     } catch (err) {
       const detail = err.response?.data?.detail;
       setError(Array.isArray(detail) ? detail.map((d) => d.msg).join(", ") : detail || "Ошибка регистрации.");
