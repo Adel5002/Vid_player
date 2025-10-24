@@ -10,7 +10,7 @@ from sqlmodel import Session
 
 from db.crud import create_anime_info, create_anime, get_anime_by_shikimori_id
 from db.db import engine
-from db.models import AnimeInfoCreate, AnimePosterCreate, AnimeCreate
+from db.models import AnimeInfoCreate, AnimePosterCreate, AnimeCreate, AnimePosterUpdate
 
 from dramatiq_actors import dramatiq_settings
 from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
@@ -82,16 +82,14 @@ async def add_anime_to_db(anime_data: dict) -> None:
                 season=anime_data.get("season"),
                 created_at=anime_data.get("createdAt"),
                 updated_at=anime_data.get("updatedAt"),
-                poster=AnimePosterCreate(
+                poster=AnimePosterUpdate(
                     originalUrl=originalUrl,
                     mainUrl=mainUrl,
                     local_image_link=None,
                 ),
             )
-
             anime = create_anime(session, anime)
 
-            print(anime)
 
             anime_info_data = AnimeInfoCreate(
                 anime_id=anime.id,
@@ -119,8 +117,8 @@ async def add_anime_to_db(anime_data: dict) -> None:
             create_anime_info(session, anime_info_data)
             print(f"✅ Аниме добавлено: {anime_data.get('name')}")
         await asyncio.sleep(1)
-    except Exception:
-        pass
+    except Exception as e:
+        print(e)
     finally:
         cache.incr("DONE_TASKS")
         total = int(cache.get("TOTAL_TASKS") or 0)

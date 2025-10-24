@@ -47,7 +47,7 @@ def _build_tfidf(session: Session):
     anime_ids = []
 
     for a in animes:
-        if not a.info:
+        if not a.info or a.info.kodik_player_url == "none":
             continue
 
         info = a.info

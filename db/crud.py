@@ -194,7 +194,7 @@ def read_anime(session: Session, anime_id: int) -> Optional[Anime]:
     return anime
 
 
-def get_anime_by_name(session: Session, name: str) -> Sequence[dict]:
+def get_anime_by_name(session: Session, name: str) -> Optional[Sequence[dict]]:
     animes = session.scalars(
         select(Anime)
         .filter(
@@ -234,7 +234,7 @@ def get_anime_by_name(session: Session, name: str) -> Sequence[dict]:
         )
 
     if len(result) == 0:
-        raise HTTPException(status_code=404, detail="Anime not found")
+        return None
 
     return result
 

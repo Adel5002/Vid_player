@@ -57,7 +57,7 @@ async def get_all_anime_cursor(
     next_page: Optional[str] = None,
     prev_page: Optional[str] = None,
     session: Session = Depends(get_session),
-) -> Optional[dict[str, str]]:
+):
     db_is_ready = cache.get("DB_READY")
     if db_is_ready is None or db_is_ready.decode("utf-8") != "true":
         return {"status": "db is not ready yet, please wait..."}
@@ -77,53 +77,50 @@ async def get_popular_anime(
 @router.get('/by-name/{name}')
 async def get_anime(name: str, session: Session = Depends(get_session)) -> Sequence[dict]:
     # 1️⃣ Пытаемся найти в БД
-    from_db = crud.get_anime_by_name(session, name)
-
-    # 2️⃣ Собираем все известные названия из БД
-    db_names = set()
-    for a in from_db:
-        if a.get("name"):
-            db_names.add(a["name"].lower())
-        if a.get("russian"):
-            db_names.add(a["russian"].lower())
-
-    # 3️⃣ Нормализуем запрос
+    from_db = crud.get_anime_by_name(session, name) or []
     query_name = name.lower().strip()
 
-    # 4️⃣ Определяем, нужно ли идти в API
+    # 2️⃣ Собираем все известные названия из БД
+    db_names = {a.get("name", "").lower() for a in from_db if a.get("name")}
+    db_names |= {a.get("russian", "").lower() for a in from_db if a.get("russian")}
+
+    # 3️⃣ Определяем, нужно ли идти в API
     need_api = False
 
     if not from_db:
-        # если вообще ничего нет в БД
         need_api = True
     else:
         exact_match = any(query_name == n for n in db_names)
         partial_match = any(query_name in n for n in db_names)
 
-        # если нет совпадений вообще
         if not exact_match and not partial_match:
             need_api = True
-        # если совпадение частичное и результатов мало
-        elif partial_match and len(from_db) < 3:
+        elif partial_match and len(from_db) < 5:
             need_api = True
 
-    # 5️⃣ Если нужно — ищем через API
+    # 4️⃣ Если нужно — ищем через API
     from_api = []
     if need_api:
-        animes = await search_for_anime(anime_name=name)
-        add_anime_to_queue.send(animes)
+        try:
+            animes = await search_for_anime(anime_name=name)
+            if animes:
+                add_anime_to_queue.send(animes)
 
-        validated = [validate_anime_dict(a).model_dump() for a in animes]
+                validated = [validate_anime_dict(a).model_dump() for a in animes]
 
-        # фильтруем дубликаты по имени и русскому названию
-        from_api = [
-            a for a in validated
-            if a["name"].lower() not in db_names
-            and (a.get("russian") or "").lower() not in db_names
-        ]
+                # фильтруем дубликаты
+                from_api = [
+                    a for a in validated
+                    if a["name"].lower() not in db_names
+                    and (a.get("russian") or "").lower() not in db_names
+                ]
+        except Exception as e:
+            print(f"⚠️ Ошибка при запросе к API: {e}")
+            from_api = []
 
-    # 6️⃣ Возвращаем объединённый результат
+    # 5️⃣ Возвращаем объединённый результат (всегда списки!)
     return [*from_db, *from_api]
+
 
 @router.get('/{anime_id}')
 async def watch_anime(anime_id: int, session: Session = Depends(get_session)) -> dict:
