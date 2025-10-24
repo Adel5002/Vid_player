@@ -35,6 +35,15 @@ services:
      depends_on:
        - redis
        - db
+   dramatiq_update_db:
+     build: .
+     command: dramatiq dramatiq_actors.db_update_actor --processes 1 --threads 1 --queues update_task
+     depends_on:
+       - db
+       - web
+       - redis
+     volumes:
+       - .:/code
    dramatiq_fill_db:
      build: .
      command: dramatiq dramatiq_actors.db_fill_actor --processes 1 --threads 1 --queues heavy_tasks

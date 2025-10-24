@@ -222,8 +222,8 @@ class AnimeCreate(SQLModel):
     episodes_aired: Optional[int] = 0
     aired_on: Optional[dict] = None
     released_on: Optional[dict] = None
-    poster: Optional["AnimePosterCreate"] = None
-    info: Optional["AnimeInfoCreate"] = None
+    poster: Optional["AnimePosterUpdate"] = None
+    info: Optional["AnimeInfoUpdate"] = None
     watch_anime: List[WatchAnime] = []
     season: Optional[str] = None
 
@@ -306,6 +306,9 @@ class AnimeInfoCreate(SQLModel):
 
     genres: Optional[List["GenreCreate"]] = None
 
+class AnimeInfoUpdate(AnimeInfoCreate):
+    anime_id: Optional[int] = Field(default=None, exclude=True)
+
 
 class AnimeInfoRead(SQLModel):
     id: int
@@ -345,7 +348,7 @@ class AnimePoster(SQLModel, table=True):
 
 
 class AnimePosterCreate(SQLModel):
-    anime_id: Optional[int] = None
+    anime_id: int
     originalUrl: Optional[str] = None
     mainUrl: Optional[str] = None
     local_image_link: Optional[str] = None
@@ -359,8 +362,5 @@ class AnimePosterRead(SQLModel):
     local_image_link: Optional[str] = None
 
 
-class AnimePosterUpdate(SQLModel):
-    anime_id: Optional[int] = None
-    originalUrl: Optional[str] = None
-    mainUrl: Optional[str] = None
-    local_image_link: Optional[str] = None
+class AnimePosterUpdate(AnimePosterCreate):
+    anime_id: Optional[int] = Field(default=None, exclude=True)

@@ -7,11 +7,12 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlmodel import Session, select
 
+from db.crud import update_anime
 from dramatiq_actors.db_fill_actor import add_anime_to_db, add_anime_to_queue
 
 from db import crud
 from db.db import get_session
-from db.models import AnimeRead, Anime
+from db.models import AnimeRead, Anime, AnimeCreate
 from kodik_api_calls.get_player_by_shiki_id import get_player_by_id
 from redis_cache import cache
 
@@ -158,6 +159,10 @@ def recommendations(
 
     recs = get_recommendations(anime_id, session)
     return {"anime_id": anime_id, "recommendations": recs}
+
+@router.patch("/update/{anime_id}", response_model=AnimeRead)
+async def update_anime_by_id(anime_id: int, anime_data: AnimeCreate, session: Session = Depends(get_session)) -> Anime:
+    return update_anime(session, anime_id, anime_data)
 
 @router.delete("/delete/{anime_id}")
 async def delete_anime_by_id(anime_id: int, session: Session = Depends(get_session)):

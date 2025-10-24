@@ -10,6 +10,8 @@ from pytz import timezone
 from loguru import logger
 from dotenv import load_dotenv
 
+from dramatiq_actors.db_update_actor import update_ongoings
+
 load_dotenv()
 
 from db.db import init_db, drop_db
@@ -88,6 +90,11 @@ async def drop_db_endpoint():
 @app.get('/fill-db/')
 async def fill_db_endpoint():
     fill_db.send()
+    return {'status': 'ok'}
+
+@app.get('/update-db/')
+async def update_db():
+    update_ongoings.send()
     return {'status': 'ok'}
 
 if __name__ == "__main__":

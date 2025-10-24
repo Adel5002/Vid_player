@@ -233,6 +233,9 @@ def get_anime_by_name(session: Session, name: str) -> Sequence[dict]:
             ).model_dump()
         )
 
+    if len(result) == 0:
+        raise HTTPException(status_code=404, detail="Anime not found")
+
     return result
 
 from sqlalchemy import case, select, desc, func, cast, Integer, and_, asc, Numeric
@@ -320,18 +323,56 @@ def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[d
 
     return anime
 
-def update_anime(session: Session, anime_id: int, anime_data: AnimeCreate) -> Anime:
-    anime = session.get(Anime, anime_id)
-    if not anime:
-        raise HTTPException(404, 'Anime does not exists')
+from fastapi import HTTPException
+from sqlmodel import Session, select
+from db.models import Anime, AnimeInfo
 
-    for field, value in anime_data.dict(exclude_unset=True).items():
-        setattr(anime, field, value)
+
+def update_anime(session: Session, anime_id: int, anime_data):
+    # Пробуем найти аниме по ID или Shikimori ID
+    anime = session.scalar(
+        select(Anime).where(
+            or_(Anime.id == anime_id, Anime.shikimori_id == anime_id)
+        )
+    )
+    if not anime:
+        raise HTTPException(404, "Anime not found")
+
+    # --- Обновляем основные поля (кроме info) ---
+    anime.sqlmodel_update(
+        anime_data.model_dump(exclude_unset=True, exclude={"info"})
+    )
+
+    # --- Обновляем info ---
+    if anime_data.info:
+        # если в info передан shikimori_id — используем его
+        info_query = (
+            select(AnimeInfo)
+            .where(
+                or_(AnimeInfo.shikimori_id == anime_data.shikimori_id, AnimeInfo.anime_id == anime.id)
+            )
+        )
+
+        anime_info = session.scalar(info_query)
+
+        if anime_info:
+            anime_info.sqlmodel_update(
+                anime_data.info.model_dump(exclude_unset=True)
+            )
+            session.add(anime_info)
+        else:
+            new_info = AnimeInfo(
+                anime_id=anime.id,
+                **anime_data.info.model_dump(exclude_unset=True),
+            )
+            session.add(new_info)
 
     session.add(anime)
     session.commit()
     session.refresh(anime)
+
     return anime
+
 
 def get_all_possible_anime(session: Session) -> Sequence[Anime]:
     return session.scalars(select(Anime)).all()
@@ -552,7 +593,7 @@ def update_anime_info(session: Session, info_id: int, info_data: AnimeInfoCreate
     if not info:
         return None
 
-    for field, value in info_data.dict(exclude_unset=True).items():
+    for field, value in info_data.model_dump(exclude_unset=True).items():
         if field != "genres":
             setattr(info, field, value)
 

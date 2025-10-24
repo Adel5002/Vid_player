@@ -1,4 +1,4 @@
-from db.models import AnimeCreate, AnimeInfoCreate, AnimePosterCreate, Anime
+from db.models import AnimeCreate, AnimeInfoCreate, Anime, AnimePosterUpdate
 
 
 def validate_anime_dict(item: dict) -> Anime:
@@ -19,7 +19,7 @@ def validate_anime_dict(item: dict) -> Anime:
         season=item.get("season"),
         created_at=item.get("createdAt"),
         updated_at=item.get("updatedAt"),
-        poster=AnimePosterCreate(
+        poster=AnimePosterUpdate(
             originalUrl=originalUrl,
             mainUrl=mainUrl,
             local_image_link=None,
