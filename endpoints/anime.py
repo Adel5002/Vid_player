@@ -52,28 +52,17 @@ async def filter_anime(
     return anime_filter.filter_anime(filters, limit, session)
 
 @router.get("/all")
-async def get_all_anime(
-        page: int = 1,
-        limit: int = 50,
-        session: Session = Depends(get_session)
-) -> Union[Sequence[dict], dict[str, str]]:
-    cache_key = f"anime"
-    cached = cache.get(cache_key)
-
-    start, end = (page - 1) * limit, page * limit
-
-    if cached:
-        print("⚡ Отдаю из кэша:", cache_key)
-        return json.loads(cached)[start:end]
-
+async def get_all_anime_cursor(
+    limit: int = 50,
+    next_page: Optional[str] = None,
+    prev_page: Optional[str] = None,
+    session: Session = Depends(get_session),
+) -> Optional[dict[str, str]]:
     db_is_ready = cache.get("DB_READY")
-
     if db_is_ready is None or db_is_ready.decode("utf-8") != "true":
         return {"status": "db is not ready yet, please wait..."}
 
-    bulk_anime = crud.get_anime_bulk(session)
-    cache.set('anime', json.dumps(bulk_anime), ex=300)
-    return bulk_anime[start:end]
+    return crud.get_anime_bulk_cursor(session, limit, next_page, prev_page)
 
 @router.get("/popular")
 async def get_popular_anime(

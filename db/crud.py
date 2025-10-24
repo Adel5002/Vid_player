@@ -243,11 +243,20 @@ from sqlalchemy.orm import selectinload, contains_eager
 import datetime
 from typing import Sequence
 
-def get_anime_bulk(session: Session) -> Sequence[Anime]:
-    # Добавить сортировку по сезону
-    current_year = str(datetime.date.today().year)
 
-    # порядок сортировки: ongoing → released → anons
+def get_anime_bulk_cursor(
+    session: Session,
+    limit: int,
+    next_page: Optional[str] = None,
+    prev_page: Optional[str] = None,
+):
+    """
+    Пагинация с курсорами по статусу и рейтингу (аналог get_anime_bulk, но с курсорами).
+    Порядок: ongoing → released → anons.
+    """
+
+    year_now = datetime.date.today().year
+
     status_order = case(
         (Anime.status == "ongoing", 0),
         (Anime.status == "released", 1),
@@ -255,46 +264,98 @@ def get_anime_bulk(session: Session) -> Sequence[Anime]:
         else_=3,
     )
 
-    anime = session.scalars(
+    season_year_expr = cast(
+        func.nullif(func.regexp_replace(Anime.season, '[^0-9]', '', 'g'), ''),
+        Integer
+    )
+
+    base = (
         select(Anime)
         .join(AnimeInfo)
         .where(
-            Anime.season.contains(str(current_year)),
-            AnimeInfo.kodik_player_url != "none",
-            Anime.score > 0
+
+            or_(
+                season_year_expr >= year_now,
+                Anime.status == "anons",
+            ),
+
+            AnimeInfo.kodik_player_url.is_not(None),
+
+            or_(Anime.score > 0, Anime.status == "anons"),
         )
-        .order_by(status_order, desc(Anime.score))
         .options(
             selectinload(Anime.info),
-            selectinload(Anime.poster)
+            selectinload(Anime.poster),
         )
-    ).all()
+    )
 
-    result = []
-    for item in anime:
-        result.append(
-            AnimeRead(
-                id=item.id,
-                shikimori_id=item.shikimori_id,
-                name=item.name,
-                russian=item.russian,
-                url=item.url,
-                kind=item.kind,
-                score=item.score,
-                status=item.status,
-                episodes=item.episodes,
-                episodes_aired=item.episodes_aired,
-                aired_on=item.aired_on,
-                released_on=item.released_on,
-                poster=item.poster,
-                info=item.info,
-                season=item.season,
-                created_at=item.created_at,
-                updated_at=item.updated_at,
-            ).model_dump()
-        )
+    direction = "next" if next_page else ("prev" if prev_page else None)
+    page_data = decode_page(next_page or prev_page) if (next_page or prev_page) else None
 
-    return result
+    if page_data:
+        status_val = page_data.get("status")
+        score_val = float(page_data.get("score", 0))
+
+        status_rank = {"ongoing": 0, "released": 1, "anons": 2}
+        current_rank = status_rank.get(status_val, 3)
+
+
+        if direction == "next":
+
+            base = base.where(
+                or_(
+                    status_order > current_rank,
+                    and_(status_order == current_rank, Anime.score < score_val),
+                )
+            )
+        else:
+
+            base = base.where(
+                or_(
+                    status_order < current_rank,
+                    and_(status_order == current_rank, Anime.score > score_val),
+                )
+            )
+
+    order = asc if direction != "prev" else desc
+    base = base.order_by(order(status_order), desc(Anime.score)).limit(limit + 1)
+
+    rows = session.scalars(base).all()
+
+    if direction == "prev":
+        rows = list(reversed(rows))
+
+    items = [
+        AnimeRead(**r.model_dump(), poster=r.poster)
+        for r in rows[:limit]
+    ]
+
+    has_next = has_prev = False
+    if direction == "next":
+        has_next = len(rows) > limit
+        has_prev = bool(next_page or prev_page)
+    elif direction == "prev":
+        has_prev = len(rows) > limit
+        has_next = True
+    else:
+        has_next = len(rows) > limit
+        has_prev = False
+
+    next_page_token = prev_page_token = None
+    if items:
+        first, last = items[0], items[-1]
+        next_page_token = encode_page({"status": last.status, "score": last.score})
+        prev_page_token = encode_page({"status": first.status, "score": first.score})
+
+    return {
+        "items": items,
+        "next_page": next_page_token if has_next else None,
+        "prev_page": prev_page_token if has_prev else None,
+        "has_next": has_next,
+        "has_prev": has_prev,
+    }
+
+
 
 def get_anime_by_shikimori_id(shikimori_id: int, session: Session) -> Optional[dict]:
     anime = session.scalar(select(Anime).where(Anime.shikimori_id == shikimori_id))
